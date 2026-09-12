@@ -107,6 +107,12 @@ const CARTORIO_TABELIAO = '';
 
 Atualize endereço e tabelião conforme necessário. Depois, execute novamente `npm run build` para validar a alteração.
 
+Melhorias que estou a preparar:
+
+Adicionar novas minutas, como declaratórias de união estável, pacto antenupcial.. entre outras.
+Melhorar a formatação, e criar facilidade de cabeçalho. 
+Irei remover o botão gerar minuta nos formulários de APOSTILAMENTO e de CERTIDÕES, pois é desnecessário.
+
 ## Privacidade e responsabilidade
 
 O preenchimento é local no navegador e os dados não são persistidos em banco de dados pela aplicação. Ainda assim, evite compartilhar telas, textos copiados ou arquivos impressos que contenham dados pessoais.
