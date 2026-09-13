@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Calculator, DollarSign, AlertCircle, CheckCircle, Copy, Download } from 'lucide-react';
+import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X } from 'lucide-react';
 import {
   Pessoa,
   DadosBancarios,
@@ -12,15 +12,46 @@ import {
   FormularioApostilamento,
   FormularioCertidao,
   FormularioProcuracao,
+  FormularioUniaoEstavel,
+  FormularioPactoAntenupcial,
   PODERES_OPCOES,
   ESTADOS_CIVIS,
+  REGIMES_BENS,
 } from './types';
 import { MinutaModal, TipoMinuta } from './components/MinutaModal';
 
+const itensMenu = [
+  { id: 'procuracao', label: 'Procuração', icon: FileText },
+  { id: 'apostilamento', label: 'Apostilamento', icon: Shield },
+  { id: 'certidoes', label: 'Certidões', icon: FileText },
+  { id: 'uniao_estavel', label: 'União Estável', icon: User },
+  { id: 'pacto_antenupcial', label: 'Pacto Antenupcial', icon: Building },
+  { id: 'outros', label: 'Outros Formulários', icon: CreditCard },
+];
+
+function TermosCondicoes() {
+  return (
+    <section>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 print:text-lg print:mb-3">Termos e Condições</h2>
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:compact">
+        <div className="text-sm text-gray-700 leading-relaxed print:text-xs print:leading-tight">
+          <p className="mb-4">
+            Nos termos dos artigos 29 e seguintes da Consolidação Normativa da Corregedoria de Justiça deste Estado. O requerente fica advertido da possibilidade de haver diferença no valor dos emolumentos, em função do número de páginas da certidão (art 411 e seus parágrafos da Consolidação Normativa da Corregedoria Geral da Justiça deste Estado). Tendo o mesmo requerente lido e conferido o requerimento.
+          </p>
+          <p>
+            As exigências acima são em cumprimento ao artigo 2º e seus incisos do Provimento nº 61/2017 de 17/10/2017 da Corregedoria Nacional de Justiça.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function App() {
   const [abaAtiva, setAbaAtiva] = useState('procuracao');
-  const [subabaEscritura, setSubabaEscritura] = useState('pagamento');
   const [minutaAberta, setMinutaAberta] = useState<TipoMinuta | null>(null);
+  const [temaEscuro, setTemaEscuro] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
   const [formulario, setFormulario] = useState<FormularioProcuracao>({
     outorgantes: [{
       id: '1',
@@ -57,56 +88,6 @@ function App() {
     dadosVeiculo: [],
    outros: [],
   });
-
-  // Estado do formulário de pagamento
-  const [formularioPagamento, setFormularioPagamento] = useState({
-    imovel: '',
-    precoTotal: '',
-    pagamentos: {
-      especie: { valor: '', usado: false },
-      cheque: { 
-        valor: '', 
-        numero: '', 
-        agencia: '', 
-        conta: '', 
-        banco: '', 
-        titular: '',
-        usado: false 
-      },
-      transferencia1: {
-        valor: '',
-        contaOrigem: '',
-        agenciaOrigem: '',
-        bancoOrigem: '',
-        titularOrigem: '',
-        contaDestino: '',
-        agenciaDestino: '',
-        bancoDestino: '',
-        titularDestino: '',
-        usado: false
-      },
-      transferencia2: {
-        valor: '',
-        numeroTransferencia: '',
-        contaOrigem: '',
-        agenciaOrigem: '',
-        bancoOrigem: '',
-        titularOrigem: '',
-        contaDestino: '',
-        agenciaDestino: '',
-        bancoDestino: '',
-        titularDestino: '',
-        usado: false
-      },
-      tedDoc: { valor: '', numero: '', usado: false },
-      parcelado: { descricao: '', usado: false },
-      outros: { descricao: '', usado: false }
-    }
-  });
-
-  const [totalCalculado, setTotalCalculado] = useState(0);
-  const [diferenca, setDiferenca] = useState(0);
-  const [declaracao, setDeclaracao] = useState('');
 
   const [formularioApostilamento, setFormularioApostilamento] = useState<FormularioApostilamento>({
     dataEntrega: '',
@@ -322,13 +303,163 @@ orgaoExpedidor: '',
     }));
   };
 
+  // --- União Estável ---
+
+  const [formularioUniaoEstavel, setFormularioUniaoEstavel] = useState<FormularioUniaoEstavel>({
+    companheiros: [
+      { id: '1', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
+      { id: '2', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
+    ],
+    dataInicioUniao: '',
+    regimeBens: '',
+    enderecoComum: '',
+    filhos: '',
+    testemunhas: [],
+  });
+
+  const adicionarCompanheiro = () => {
+    const novoCompanheiro: Pessoa = {
+      id: Date.now().toString(),
+      nome: '',
+      documento: '',
+      tipoDocumento: 'CPF',
+      nacionalidade: 'Brasileira',
+      rg: '',
+      dataExpedicaoRg: '',
+      orgaoExpedidor: '',
+      endereco: '',
+      telefone: '',
+      profissao: '',
+      estadoCivil: '',
+    };
+    setFormularioUniaoEstavel(prev => ({ ...prev, companheiros: [...prev.companheiros, novoCompanheiro] }));
+  };
+
+  const removerCompanheiro = (id: string) => {
+    setFormularioUniaoEstavel(prev => ({ ...prev, companheiros: prev.companheiros.filter(c => c.id !== id) }));
+  };
+
+  const atualizarCompanheiro = (id: string, campo: string, valor: string) => {
+    let valorFormatado = valor;
+    if (campo === 'documento') {
+      const companheiro = formularioUniaoEstavel.companheiros.find(c => c.id === id);
+      if (companheiro) valorFormatado = aplicarMascaraDocumento(valor, companheiro.tipoDocumento);
+    }
+    if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
+    setFormularioUniaoEstavel(prev => ({
+      ...prev,
+      companheiros: prev.companheiros.map(c => c.id === id ? { ...c, [campo]: valorFormatado } : c)
+    }));
+  };
+
+  const adicionarTestemunhaUniao = () => {
+    const novaTestemunha: Testemunha = {
+      id: Date.now().toString(), nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira',
+      rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '',
+    };
+    setFormularioUniaoEstavel(prev => ({ ...prev, testemunhas: [...prev.testemunhas, novaTestemunha] }));
+  };
+
+  const removerTestemunhaUniao = (id: string) => {
+    setFormularioUniaoEstavel(prev => ({ ...prev, testemunhas: prev.testemunhas.filter(t => t.id !== id) }));
+  };
+
+  const atualizarTestemunhaUniao = (id: string, campo: string, valor: string) => {
+    let valorFormatado = valor;
+    if (campo === 'documento') valorFormatado = aplicarMascaraDocumento(valor, 'CPF');
+    if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
+    setFormularioUniaoEstavel(prev => ({
+      ...prev,
+      testemunhas: prev.testemunhas.map(t => t.id === id ? { ...t, [campo]: valorFormatado } : t)
+    }));
+  };
+
+  const atualizarCampoUniaoEstavel = (campo: string, valor: string) => {
+    setFormularioUniaoEstavel(prev => ({ ...prev, [campo]: valor }));
+  };
+
+  // --- Pacto Antenupcial ---
+
+  const [formularioPactoAntenupcial, setFormularioPactoAntenupcial] = useState<FormularioPactoAntenupcial>({
+    nubentes: [
+      { id: '1', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
+      { id: '2', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
+    ],
+    regimeBens: '',
+    clausulasEspecificas: '',
+    dataPrevistaCasamento: '',
+    bensParticulares: '',
+    testemunhas: [],
+  });
+
+  const adicionarNubente = () => {
+    const novoNubente: Pessoa = {
+      id: Date.now().toString(),
+      nome: '',
+      documento: '',
+      tipoDocumento: 'CPF',
+      nacionalidade: 'Brasileira',
+      rg: '',
+      dataExpedicaoRg: '',
+      orgaoExpedidor: '',
+      endereco: '',
+      telefone: '',
+      profissao: '',
+      estadoCivil: '',
+    };
+    setFormularioPactoAntenupcial(prev => ({ ...prev, nubentes: [...prev.nubentes, novoNubente] }));
+  };
+
+  const removerNubente = (id: string) => {
+    setFormularioPactoAntenupcial(prev => ({ ...prev, nubentes: prev.nubentes.filter(n => n.id !== id) }));
+  };
+
+  const atualizarNubente = (id: string, campo: string, valor: string) => {
+    let valorFormatado = valor;
+    if (campo === 'documento') {
+      const nubente = formularioPactoAntenupcial.nubentes.find(n => n.id === id);
+      if (nubente) valorFormatado = aplicarMascaraDocumento(valor, nubente.tipoDocumento);
+    }
+    if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
+    setFormularioPactoAntenupcial(prev => ({
+      ...prev,
+      nubentes: prev.nubentes.map(n => n.id === id ? { ...n, [campo]: valorFormatado } : n)
+    }));
+  };
+
+  const adicionarTestemunhaPacto = () => {
+    const novaTestemunha: Testemunha = {
+      id: Date.now().toString(), nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira',
+      rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '',
+    };
+    setFormularioPactoAntenupcial(prev => ({ ...prev, testemunhas: [...prev.testemunhas, novaTestemunha] }));
+  };
+
+  const removerTestemunhaPacto = (id: string) => {
+    setFormularioPactoAntenupcial(prev => ({ ...prev, testemunhas: prev.testemunhas.filter(t => t.id !== id) }));
+  };
+
+  const atualizarTestemunhaPacto = (id: string, campo: string, valor: string) => {
+    let valorFormatado = valor;
+    if (campo === 'documento') valorFormatado = aplicarMascaraDocumento(valor, 'CPF');
+    if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
+    setFormularioPactoAntenupcial(prev => ({
+      ...prev,
+      testemunhas: prev.testemunhas.map(t => t.id === id ? { ...t, [campo]: valorFormatado } : t)
+    }));
+  };
+
+  const atualizarCampoPacto = (campo: string, valor: string) => {
+    setFormularioPactoAntenupcial(prev => ({ ...prev, [campo]: valor }));
+  };
+
   const togglePoder = (poder: string) => {
     setFormulario(prev => {
       const novosPoderes = prev.poderesOutorgados.includes(poder)
         ? prev.poderesOutorgados.filter(p => p !== poder)
         : [...prev.poderesOutorgados, poder];
   
-      let novoFormulario = { ...prev, poderesOutorgados: novosPoderes };
+      const novoFormulario = { ...prev, poderesOutorgados: novosPoderes };
   
       // Limpar dados quando poder é removido
       if (!novosPoderes.includes('BANCÁRIA')) {
@@ -628,16 +759,24 @@ orgaoExpedidor: '',
     window.print();
   };
 
-  const renderizarCamposPessoa = (pessoa: Pessoa, tipo: 'outorgantes' | 'outorgados', index: number) => (
+  const renderizarCamposPessoa = (
+    pessoa: Pessoa,
+    index: number,
+    titulo: string,
+    onChange: (campo: string, valor: string) => void,
+    podeRemover: boolean,
+    onRemover: () => void,
+    mostrarTelefone: boolean = true
+  ) => (
     <div key={pessoa.id} className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:border print:border-gray-400 print:bg-white">
       <div className="flex items-center justify-between mb-4 print:mb-2">
       <h4 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
           <User className="w-5 h-5 text-blue-600 print:hidden" />
-          {tipo === 'outorgantes' ? 'Outorgante' : 'Outorgado'} {index + 1}
+          {titulo} {index + 1}
         </h4>
-        {(tipo === 'outorgantes' ? formulario.outorgantes.length > 1 : formulario.outorgados.length > 1) && (
+        {podeRemover && (
           <button
-            onClick={() => removerPessoa(tipo, pessoa.id)}
+            onClick={onRemover}
             className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors print:hidden"
           >
             <Trash2 className="w-4 h-4" />
@@ -651,7 +790,7 @@ orgaoExpedidor: '',
           <input
             type="text"
             value={pessoa.nome}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'nome', e.target.value)}
+            onChange={(e) => onChange('nome', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             placeholder="Digite o nome completo"
           />
@@ -661,7 +800,7 @@ orgaoExpedidor: '',
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Tipo de Documento</label>
           <select
             value={pessoa.tipoDocumento}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'tipoDocumento', e.target.value)}
+            onChange={(e) => onChange('tipoDocumento', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           >
             <option value="CPF">CPF</option>
@@ -676,7 +815,7 @@ orgaoExpedidor: '',
           <input
             type="text"
             value={pessoa.documento}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'documento', e.target.value)}
+            onChange={(e) => onChange('documento', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             placeholder={pessoa.tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
           />
@@ -686,7 +825,7 @@ orgaoExpedidor: '',
           <input
             type="text"
             value={pessoa.rg}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'rg', e.target.value)}
+            onChange={(e) => onChange('rg', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             placeholder="00.000.000-0"
           />
@@ -697,7 +836,7 @@ orgaoExpedidor: '',
           <input
             type="date"
             value={pessoa.dataExpedicaoRg}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'dataExpedicaoRg', e.target.value)}
+            onChange={(e) => onChange('dataExpedicaoRg', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           />
         </div>
@@ -707,7 +846,7 @@ orgaoExpedidor: '',
           <input
             type="text"
             value={pessoa.orgaoExpedidor}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'orgaoExpedidor', e.target.value)}
+            onChange={(e) => onChange('orgaoExpedidor', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             placeholder="Ex: SSP/RJ, DETRAN/RJ"
           />
@@ -717,7 +856,7 @@ orgaoExpedidor: '',
           <input
             type="text"
             value={pessoa.profissao}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'profissao', e.target.value)}
+            onChange={(e) => onChange('profissao', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             placeholder="Digite a profissão"
           />
@@ -728,7 +867,7 @@ orgaoExpedidor: '',
           <input
             type="text"
             value={pessoa.nacionalidade}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'nacionalidade', e.target.value)}
+            onChange={(e) => onChange('nacionalidade', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             placeholder="Ex: Brasileira"
           />
@@ -738,7 +877,7 @@ orgaoExpedidor: '',
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Estado Civil</label>
           <select
             value={pessoa.estadoCivil}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'estadoCivil', e.target.value)}
+            onChange={(e) => onChange('estadoCivil', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           >
             <option value="">Selecione o estado civil</option>
@@ -748,7 +887,7 @@ orgaoExpedidor: '',
           </select>
         </div>
 
-        {tipo === 'outorgantes' && (
+        {mostrarTelefone && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1 flex items-center gap-2">
               <Phone className="w-4 h-4 print:hidden" />
@@ -757,7 +896,7 @@ orgaoExpedidor: '',
             <input
               type="tel"
               value={pessoa.telefone || ''}
-              onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'telefone', e.target.value)}
+              onChange={(e) => onChange('telefone', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
               placeholder="(00) 00000-0000"
             />
@@ -771,7 +910,7 @@ orgaoExpedidor: '',
           </label>
           <textarea
             value={pessoa.endereco}
-            onChange={(e) => atualizarPessoa(tipo, pessoa.id, 'endereco', e.target.value)}
+            onChange={(e) => onChange('endereco', e.target.value)}
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none print:border-gray-400 print:text-sm print:rows-2"
             placeholder="Rua, número, complemento, bairro, cidade, estado, CEP"
@@ -1102,7 +1241,12 @@ const renderizarCamposRequerenteCertidao = (requerente: Requerente, index: numbe
   </div>
 );
 
-const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
+const renderizarCamposTestemunha = (
+  testemunha: Testemunha,
+  index: number,
+  onChange: (campo: string, valor: string) => void,
+  onRemover: () => void
+) => (
   <div key={testemunha.id} className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:border print:border-gray-400 print:bg-white">
     <div className="flex items-center justify-between mb-4 print:mb-2">
       <h4 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -1110,7 +1254,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         Testemunha {index + 1}
       </h4>
       <button
-        onClick={() => removerTestemunha(testemunha.id)}
+        onClick={onRemover}
         className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors print:hidden"
       >
         <Trash2 className="w-4 h-4" />
@@ -1123,7 +1267,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <input
           type="text"
           value={testemunha.nome}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'nome', e.target.value)}
+          onChange={(e) => onChange('nome', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           placeholder="Digite o nome completo"
         />
@@ -1134,7 +1278,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <input
           type="text"
           value={testemunha.documento}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'documento', e.target.value)}
+          onChange={(e) => onChange('documento', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           placeholder="000.000.000-00"
           maxLength={14}
@@ -1146,7 +1290,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <input
           type="text"
           value={testemunha.rg}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'rg', e.target.value)}
+          onChange={(e) => onChange('rg', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           placeholder="00.000.000-0"
         />
@@ -1157,7 +1301,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <input
           type="date"
           value={testemunha.dataExpedicaoRg}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'dataExpedicaoRg', e.target.value)}
+          onChange={(e) => onChange('dataExpedicaoRg', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
         />
       </div>
@@ -1167,7 +1311,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <input
           type="text"
           value={testemunha.orgaoExpedidor}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'orgaoExpedidor', e.target.value)}
+          onChange={(e) => onChange('orgaoExpedidor', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           placeholder="Ex: SSP/RJ, DETRAN/RJ"
         />
@@ -1178,7 +1322,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <input
           type="text"
           value={testemunha.profissao}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'profissao', e.target.value)}
+          onChange={(e) => onChange('profissao', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           placeholder="Digite a profissão"
         />
@@ -1189,7 +1333,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <input
           type="text"
           value={testemunha.nacionalidade}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'nacionalidade', e.target.value)}
+          onChange={(e) => onChange('nacionalidade', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           placeholder="Ex: Brasileira"
         />
@@ -1199,7 +1343,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Estado Civil</label>
         <select
           value={testemunha.estadoCivil}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'estadoCivil', e.target.value)}
+          onChange={(e) => onChange('estadoCivil', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
         >
           <option value="">Selecione o estado civil</option>
@@ -1217,7 +1361,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         <input
           type="text"
           value={testemunha.telefone}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'telefone', e.target.value)}
+          onChange={(e) => onChange('telefone', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           placeholder="(00)0.000-0000"
           maxLength={14}
@@ -1231,7 +1375,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         </label>
         <textarea
           value={testemunha.endereco}
-          onChange={(e) => atualizarTestemunha(testemunha.id, 'endereco', e.target.value)}
+          onChange={(e) => onChange('endereco', e.target.value)}
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none print:border-gray-400 print:text-sm print:rows-2"
           placeholder="Rua, número, complemento, bairro, cidade, estado, CEP"
@@ -1248,15 +1392,70 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
         formulario={formulario}
         formularioApostilamento={formularioApostilamento}
         formularioCertidao={formularioCertidao}
+        formularioUniaoEstavel={formularioUniaoEstavel}
+        formularioPactoAntenupcial={formularioPactoAntenupcial}
         onVoltar={() => setMinutaAberta(null)}
       />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 print:bg-white">
+    <div className={temaEscuro ? 'app-shell dark min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 print:bg-white' : 'app-shell min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 print:bg-white'}>
+      <button
+        type="button"
+        className="dashboard-menu-button print:hidden"
+        onClick={() => setMenuAberto((aberto) => !aberto)}
+        aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
+        aria-expanded={menuAberto}
+      >
+        {menuAberto ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </button>
+
+      {menuAberto && <button type="button" className="dashboard-overlay print:hidden" onClick={() => setMenuAberto(false)} aria-label="Fechar menu" />}
+
+      <aside className={`dashboard-sidebar print:hidden ${menuAberto ? 'is-open' : ''}`}>
+        <div className="dashboard-brand">
+          <FileText className="w-7 h-7" />
+          <div>
+            <span>Cartório 1º Ofício</span>
+            <strong>Formulários</strong>
+          </div>
+        </div>
+        <p className="dashboard-menu-title">Navegação</p>
+        <nav className="dashboard-nav" aria-label="Formulários">
+          {itensMenu.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setAbaAtiva(id);
+                setMenuAberto(false);
+              }}
+              className={`dashboard-nav-item ${abaAtiva === id ? 'is-active' : ''}`}
+              aria-current={abaAtiva === id ? 'page' : undefined}
+            >
+              <Icon className="w-5 h-5" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      <div className="dashboard-main">
       <div className="container mx-auto px-4 py-8 max-w-6xl print:px-2 print:py-4">
-        <header className="text-center mb-8 print:mb-4">
+        <div className="flex justify-end mb-4 print:hidden">
+          <button
+            type="button"
+            onClick={() => setTemaEscuro((temaAtual) => !temaAtual)}
+            className="theme-toggle inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+            aria-label={temaEscuro ? 'Ativar tema claro' : 'Ativar tema escuro'}
+            title={temaEscuro ? 'Ativar tema claro' : 'Ativar tema escuro'}
+          >
+            {temaEscuro ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {temaEscuro ? 'Tema claro' : 'Tema escuro'}
+          </button>
+        </div>
+        <header className="app-header text-center mb-8 print:mb-4">
         <h1 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3 print:text-2xl print:mb-1">
   <FileText className="w-10 h-10 text-blue-600 print:hidden" />
   Formulários  - Cartório 1º Ofício de Volta Redonda/RJ
@@ -1264,53 +1463,17 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
 <p className="text-gray-600 text-lg print:text-sm print:mb-2">Sistema de Geração de Formulários</p>
         </header>
 
-        {/* Sistema de Abas */}
-        <div className="bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:mb-4">
-        <div className="border-b border-gray-200 print:hidden">
-        <nav className="flex space-x-8 px-6">
-  <button
-    onClick={() => setAbaAtiva('procuracao')}
-    className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-      abaAtiva === 'procuracao'
-        ? 'border-blue-500 text-blue-600'
-        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-    }`}
-  >
-    Procuração
-  </button>
-  <button
-    onClick={() => setAbaAtiva('apostilamento')}
-    className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-      abaAtiva === 'apostilamento'
-        ? 'border-blue-500 text-blue-600'
-        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-    }`}
-  >
-    Apostilamento
-  </button>
-  <button
-    onClick={() => setAbaAtiva('certidoes')}
-    className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-      abaAtiva === 'certidoes'
-        ? 'border-blue-500 text-blue-600'
-        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-    }`}
-  >
-    Certidões
-  </button>
-  <button
-    onClick={() => setAbaAtiva('outros')}
-    className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-      abaAtiva === 'outros'
-        ? 'border-blue-500 text-blue-600'
-        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-    }`}
-  >
-    Outros Formulários
-  </button>
-</nav>
-          </div>
+        <aside className="app-notice mb-8 px-5 py-4 print:hidden" role="note">
+          <p>
+            O preenchimento é local no navegador e os dados não são persistidos em banco de dados pela aplicação. Ainda assim, evite compartilhar telas, textos copiados ou arquivos impressos que contenham dados pessoais.
+          </p>
+          <p>
+            As minutas são modelos de apoio ao atendimento e devem ser revisadas por profissional responsável antes de sua utilização oficial. O sistema não substitui conferência jurídica, documental ou cartorária.
+          </p>
+        </aside>
 
+        {/* Área do formulário ativo */}
+        <div className="app-panel bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:mb-4">
           <div className="p-6 print:p-2">
             {abaAtiva === 'procuracao' && (
               <div className="space-y-8 print:space-y-4">
@@ -1331,7 +1494,15 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
                   </div>
                   <div className="space-y-4 print:space-y-2">
                     {formulario.outorgantes.map((outorgante, index) =>
-                      renderizarCamposPessoa(outorgante, 'outorgantes', index)
+                      renderizarCamposPessoa(
+                        outorgante,
+                        index,
+                        'Outorgante',
+                        (campo, valor) => atualizarPessoa('outorgantes', outorgante.id, campo, valor),
+                        formulario.outorgantes.length > 1,
+                        () => removerPessoa('outorgantes', outorgante.id),
+                        true
+                      )
                     )}
                   </div>
                 </section>
@@ -1353,7 +1524,15 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
                   </div>
                   <div className="space-y-4 print:space-y-2">
                     {formulario.outorgados.map((outorgado, index) =>
-                      renderizarCamposPessoa(outorgado, 'outorgados', index)
+                      renderizarCamposPessoa(
+                        outorgado,
+                        index,
+                        'Outorgado',
+                        (campo, valor) => atualizarPessoa('outorgados', outorgado.id, campo, valor),
+                        formulario.outorgados.length > 1,
+                        () => removerPessoa('outorgados', outorgado.id),
+                        false
+                      )
                     )}
                   </div>
                 </section>
@@ -1366,7 +1545,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
     </h2>
     <button
       onClick={adicionarTestemunha}
-      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 print:hidden"
+      className="witness-button px-4 py-2 rounded-lg transition-colors flex items-center gap-2 print:hidden"
     >
       <Plus className="w-4 h-4" />
       Adicionar Testemunha
@@ -1375,7 +1554,12 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
   <div className="space-y-4 print:space-y-2">
     {formulario.testemunhas.length > 0 ? (
       formulario.testemunhas.map((testemunha, index) =>
-        renderizarCamposTestemunha(testemunha, index)
+        renderizarCamposTestemunha(
+          testemunha,
+          index,
+          (campo, valor) => atualizarTestemunha(testemunha.id, campo, valor),
+          () => removerTestemunha(testemunha.id)
+        )
       )
     ) : (
       <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:compact">
@@ -1807,14 +1991,14 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
                   <button
                     onClick={() => setMinutaAberta('procuracao')}
-                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                    className="minuta-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <FileText className="w-4 h-4" />
                     Gerar Minuta
                   </button>
                   <button 
                     onClick={imprimirFormulario}
-                    className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2"
+                    className="print-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <Printer className="w-4 h-4" />
                     Imprimir
@@ -1958,16 +2142,9 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
 
                 {/* Botões de Ação */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
-                  <button
-                    onClick={() => setMinutaAberta('apostilamento')}
-                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Gerar Minuta
-                  </button>
                   <button 
                     onClick={imprimirFormulario}
-                    className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2"
+                    className="print-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <Printer className="w-4 h-4" />
                     Imprimir
@@ -2016,6 +2193,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
             </select>
           </div>
         </div>
+
       </div>
     </section>
 
@@ -2148,27 +2326,12 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
             />
           </div>
         </div>
+
       </div>
     </section>
 
     {/* Seção Termos Legais */}
-    <section>
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 print:text-lg print:mb-3">Termos e Condições</h2>
-      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:compact">
-        <div className="text-sm text-gray-700 leading-relaxed print:text-xs print:leading-tight">
-          <p className="mb-4">
-            Nos termos dos artigos 29 e seguintes da Consolidação Normativa da Corregedoria de Justiça deste Estado. 
-            O requerente fica advertido da possibilidade de haver diferença no valor dos emolumentos, em função do número 
-            de páginas da certidão (art 411 e seus parágrafos da Consolidação Normativa da Corregedoria Geral da Justiça 
-            deste Estado). Tendo o mesmo requerente lido e conferido o requerimento.
-          </p>
-          <p>
-            As exigências acima são em cumprimento ao artigo 2º e seus incisos do Provimento nº 61/2017 de 17/10/2017 
-            da Corregedoria Nacional de Justiça.
-          </p>
-        </div>
-      </div>
-    </section>
+    <TermosCondicoes />
 
     {/* Seção Assinaturas */}
     <section>
@@ -2189,16 +2352,284 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
 
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
+      <button 
+        onClick={imprimirFormulario}
+        className="print-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
+      >
+        <Printer className="w-4 h-4" />
+        Imprimir
+      </button>
+    </div>
+  </div>
+)}
+
+{abaAtiva === 'uniao_estavel' && (
+  <div className="space-y-8 print:space-y-4">
+    {/* Seção Companheiros */}
+    <section>
+      <div className="flex items-center justify-between mb-6 print:mb-3">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2 print:text-lg">
+          <User className="w-6 h-6 text-blue-600 print:hidden" />
+          Companheiros
+        </h2>
+        <button
+          onClick={adicionarCompanheiro}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 print:hidden"
+        >
+          <Plus className="w-4 h-4" />
+          Adicionar Companheiro(a)
+        </button>
+      </div>
+      <div className="space-y-4 print:space-y-2">
+        {formularioUniaoEstavel.companheiros.map((companheiro, index) =>
+          renderizarCamposPessoa(
+            companheiro,
+            index,
+            'Companheiro(a)',
+            (campo, valor) => atualizarCompanheiro(companheiro.id, campo, valor),
+            formularioUniaoEstavel.companheiros.length > 1,
+            () => removerCompanheiro(companheiro.id),
+            true
+          )
+        )}
+      </div>
+    </section>
+
+    {/* Seção Dados da União */}
+    <section>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 print:text-lg print:mb-3">Dados da União</h2>
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:compact">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Início da União</label>
+            <input
+              type="date"
+              value={formularioUniaoEstavel.dataInicioUniao}
+              onChange={(e) => atualizarCampoUniaoEstavel('dataInicioUniao', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Regime de Bens</label>
+            <select
+              value={formularioUniaoEstavel.regimeBens}
+              onChange={(e) => atualizarCampoUniaoEstavel('regimeBens', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            >
+              <option value="">Selecione o regime de bens</option>
+              {REGIMES_BENS.map((regime) => (
+                <option key={regime} value={regime}>{regime}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1 flex items-center gap-2">
+            <MapPin className="w-4 h-4 print:hidden" />
+            Endereço Comum do Casal
+          </label>
+          <textarea
+            value={formularioUniaoEstavel.enderecoComum}
+            onChange={(e) => atualizarCampoUniaoEstavel('enderecoComum', e.target.value)}
+            rows={2}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none print:border-gray-400 print:text-sm"
+            placeholder="Rua, número, complemento, bairro, cidade, estado, CEP"
+          />
+        </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Filhos da União (opcional)</label>
+          <textarea
+            value={formularioUniaoEstavel.filhos}
+            onChange={(e) => atualizarCampoUniaoEstavel('filhos', e.target.value)}
+            rows={2}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none print:border-gray-400 print:text-sm"
+            placeholder="Nomes e datas de nascimento, se houver. Deixe em branco se não houver filhos."
+          />
+        </div>
+      </div>
+    </section>
+
+    {/* Seção Testemunhas */}
+    <section>
+      <div className="flex items-center justify-between mb-6 print:mb-3">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2 print:text-lg">
+          <User className="w-6 h-6 text-purple-600 print:hidden" />
+          Testemunhas
+        </h2>
+        <button
+          onClick={adicionarTestemunhaUniao}
+          className="witness-button px-4 py-2 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+        >
+          <Plus className="w-4 h-4" />
+          Adicionar Testemunha
+        </button>
+      </div>
+      <div className="space-y-4 print:space-y-2">
+        {formularioUniaoEstavel.testemunhas.length > 0 ? (
+          formularioUniaoEstavel.testemunhas.map((testemunha, index) =>
+            renderizarCamposTestemunha(
+              testemunha,
+              index,
+              (campo, valor) => atualizarTestemunhaUniao(testemunha.id, campo, valor),
+              () => removerTestemunhaUniao(testemunha.id)
+            )
+          )
+        ) : (
+          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:compact">
+            <p className="text-gray-500">Nenhuma testemunha adicionada. Clique no botão acima para adicionar.</p>
+          </div>
+        )}
+      </div>
+    </section>
+
+    {/* Botões de Ação */}
+    <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
       <button
-        onClick={() => setMinutaAberta('certidoes')}
-        className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+        onClick={() => setMinutaAberta('uniao_estavel')}
+        className="minuta-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
       >
         <FileText className="w-4 h-4" />
         Gerar Minuta
       </button>
-      <button 
+      <button
         onClick={imprimirFormulario}
-        className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2"
+        className="print-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
+      >
+        <Printer className="w-4 h-4" />
+        Imprimir
+      </button>
+    </div>
+  </div>
+)}
+
+{abaAtiva === 'pacto_antenupcial' && (
+  <div className="space-y-8 print:space-y-4">
+    {/* Seção Nubentes */}
+    <section>
+      <div className="flex items-center justify-between mb-6 print:mb-3">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2 print:text-lg">
+          <User className="w-6 h-6 text-blue-600 print:hidden" />
+          Nubentes
+        </h2>
+        <button
+          onClick={adicionarNubente}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 print:hidden"
+        >
+          <Plus className="w-4 h-4" />
+          Adicionar Nubente
+        </button>
+      </div>
+      <div className="space-y-4 print:space-y-2">
+        {formularioPactoAntenupcial.nubentes.map((nubente, index) =>
+          renderizarCamposPessoa(
+            nubente,
+            index,
+            'Nubente',
+            (campo, valor) => atualizarNubente(nubente.id, campo, valor),
+            formularioPactoAntenupcial.nubentes.length > 1,
+            () => removerNubente(nubente.id),
+            true
+          )
+        )}
+      </div>
+    </section>
+
+    {/* Seção Dados do Pacto */}
+    <section>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 print:text-lg print:mb-3">Dados do Pacto</h2>
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:compact">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data Prevista do Casamento</label>
+            <input
+              type="date"
+              value={formularioPactoAntenupcial.dataPrevistaCasamento}
+              onChange={(e) => atualizarCampoPacto('dataPrevistaCasamento', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Regime de Bens</label>
+            <select
+              value={formularioPactoAntenupcial.regimeBens}
+              onChange={(e) => atualizarCampoPacto('regimeBens', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            >
+              <option value="">Selecione o regime de bens</option>
+              {REGIMES_BENS.map((regime) => (
+                <option key={regime} value={regime}>{regime}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Bens Particulares (opcional)</label>
+          <textarea
+            value={formularioPactoAntenupcial.bensParticulares}
+            onChange={(e) => atualizarCampoPacto('bensParticulares', e.target.value)}
+            rows={2}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none print:border-gray-400 print:text-sm"
+            placeholder="Bens que cada nubente já possui antes do casamento, se desejar registrar"
+          />
+        </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Cláusulas Específicas (opcional)</label>
+          <textarea
+            value={formularioPactoAntenupcial.clausulasEspecificas}
+            onChange={(e) => atualizarCampoPacto('clausulasEspecificas', e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none print:border-gray-400 print:text-sm"
+            placeholder="Cláusulas adicionais combinadas entre os nubentes, além do regime de bens escolhido"
+          />
+        </div>
+      </div>
+    </section>
+
+    {/* Seção Testemunhas */}
+    <section>
+      <div className="flex items-center justify-between mb-6 print:mb-3">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2 print:text-lg">
+          <User className="w-6 h-6 text-purple-600 print:hidden" />
+          Testemunhas
+        </h2>
+        <button
+          onClick={adicionarTestemunhaPacto}
+          className="witness-button px-4 py-2 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+        >
+          <Plus className="w-4 h-4" />
+          Adicionar Testemunha
+        </button>
+      </div>
+      <div className="space-y-4 print:space-y-2">
+        {formularioPactoAntenupcial.testemunhas.length > 0 ? (
+          formularioPactoAntenupcial.testemunhas.map((testemunha, index) =>
+            renderizarCamposTestemunha(
+              testemunha,
+              index,
+              (campo, valor) => atualizarTestemunhaPacto(testemunha.id, campo, valor),
+              () => removerTestemunhaPacto(testemunha.id)
+            )
+          )
+        ) : (
+          <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:compact">
+            <p className="text-gray-500">Nenhuma testemunha adicionada. Clique no botão acima para adicionar.</p>
+          </div>
+        )}
+      </div>
+    </section>
+
+    {/* Botões de Ação */}
+    <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
+      <button
+        onClick={() => setMinutaAberta('pacto_antenupcial')}
+        className="minuta-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
+      >
+        <FileText className="w-4 h-4" />
+        Gerar Minuta
+      </button>
+      <button
+        onClick={imprimirFormulario}
+        className="print-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
       >
         <Printer className="w-4 h-4" />
         Imprimir
@@ -2208,6 +2639,7 @@ const renderizarCamposTestemunha = (testemunha: Testemunha, index: number) => (
 )}
           </div>
         </div>
+      </div>
       </div>
 
       {/* Estilos de Impressão Otimizados */}

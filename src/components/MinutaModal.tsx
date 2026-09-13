@@ -1,20 +1,35 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Printer, Copy, Check } from 'lucide-react';
-import { FormularioProcuracao, FormularioApostilamento, FormularioCertidao } from '../types';
+import {
+  FormularioProcuracao,
+  FormularioApostilamento,
+  FormularioCertidao,
+  FormularioUniaoEstavel,
+  FormularioPactoAntenupcial,
+} from '../types';
 import {
   gerarMinutaProcuracao,
   gerarMinutaApostilamento,
   gerarMinutaCertidao,
+  gerarMinutaUniaoEstavel,
+  gerarMinutaPactoAntenupcial,
   MinutaGerada,
 } from '../utils/gerarMinuta';
 
-export type TipoMinuta = 'procuracao' | 'apostilamento' | 'certidoes';
+export type TipoMinuta =
+  | 'procuracao'
+  | 'apostilamento'
+  | 'certidoes'
+  | 'uniao_estavel'
+  | 'pacto_antenupcial';
 
 interface MinutaModalProps {
   tipo: TipoMinuta;
   formulario: FormularioProcuracao;
   formularioApostilamento: FormularioApostilamento;
   formularioCertidao: FormularioCertidao;
+  formularioUniaoEstavel: FormularioUniaoEstavel;
+  formularioPactoAntenupcial: FormularioPactoAntenupcial;
   onVoltar: () => void;
 }
 
@@ -42,6 +57,8 @@ export function MinutaModal({
   formulario,
   formularioApostilamento,
   formularioCertidao,
+  formularioUniaoEstavel,
+  formularioPactoAntenupcial,
   onVoltar,
 }: MinutaModalProps) {
   const [copiado, setCopiado] = useState(false);
@@ -49,8 +66,17 @@ export function MinutaModal({
   const minuta: MinutaGerada = useMemo(() => {
     if (tipo === 'procuracao') return gerarMinutaProcuracao(formulario);
     if (tipo === 'apostilamento') return gerarMinutaApostilamento(formularioApostilamento);
-    return gerarMinutaCertidao(formularioCertidao);
-  }, [tipo, formulario, formularioApostilamento, formularioCertidao]);
+    if (tipo === 'certidoes') return gerarMinutaCertidao(formularioCertidao);
+    if (tipo === 'uniao_estavel') return gerarMinutaUniaoEstavel(formularioUniaoEstavel);
+    return gerarMinutaPactoAntenupcial(formularioPactoAntenupcial);
+  }, [
+    tipo,
+    formulario,
+    formularioApostilamento,
+    formularioCertidao,
+    formularioUniaoEstavel,
+    formularioPactoAntenupcial,
+  ]);
 
   const paragrafosCorpo = useMemo(() => dividirParagrafos(minuta.corpo), [minuta.corpo]);
   const paragrafosFechamento = useMemo(() => dividirParagrafos(minuta.fechamento), [minuta.fechamento]);

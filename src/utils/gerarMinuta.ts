@@ -5,6 +5,8 @@ import {
   FormularioProcuracao,
   FormularioApostilamento,
   FormularioCertidao,
+  FormularioUniaoEstavel,
+  FormularioPactoAntenupcial,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -442,5 +444,168 @@ export function gerarMinutaCertidao(f: FormularioCertidao): MinutaGerada {
     corpoLinhas: linhas,
     fechamentoLinhas: [`Volta Redonda/RJ, ${dataExtenso}.`],
     assinantes: f.requerentes.map((r) => r.nome || 'Requerente'),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Regimes de bens (compartilhado entre União Estável e Pacto Antenupcial)
+// ---------------------------------------------------------------------------
+
+function textoRegimeBens(regime: string, contexto: 'casamento' | 'uniao'): string {
+  const p =
+    contexto === 'casamento'
+      ? { pessoa: 'cônjuge', pessoas: 'cônjuges', vinculo: 'casamento', casar: 'casar' }
+      : { pessoa: 'companheiro(a)', pessoas: 'companheiros', vinculo: 'união', casar: 'iniciar a união' };
+
+  switch (regime) {
+    case 'Comunhão Parcial de Bens':
+      return `Comunhão Parcial de Bens, pelo qual se comunicam os bens que sobrevierem ao casal na constância do(a) ${p.vinculo}, excluídos os bens que cada ${p.pessoa} já possuía antes de ${p.casar} e os que vier a adquirir, na constância do(a) ${p.vinculo}, por doação ou sucessão, nos termos dos arts. 1.658 a 1.666 do Código Civil`;
+    case 'Comunhão Universal de Bens':
+      return `Comunhão Universal de Bens, pelo qual se comunicam todos os bens presentes e futuros dos ${p.pessoas} e suas dívidas passivas, ressalvadas as exceções previstas em lei, nos termos dos arts. 1.667 a 1.671 do Código Civil`;
+    case 'Separação Total de Bens':
+      return `Separação Total de Bens, pelo qual permanecem incomunicáveis os bens presentes e futuros de cada ${p.pessoa}, competindo a cada um a exclusiva propriedade, administração e disposição de seu próprio patrimônio, nos termos do art. 1.687 do Código Civil`;
+    case 'Participação Final nos Aquestos':
+      return `Participação Final nos Aquestos, pelo qual, na constância do(a) ${p.vinculo}, vigora entre os ${p.pessoas} a separação de bens, competindo a cada um a exclusiva administração e disposição de seu patrimônio, cabendo a cada um, em caso de dissolução, o direito à metade dos bens adquiridos pelo casal a título oneroso durante o(a) ${p.vinculo}, nos termos dos arts. 1.672 a 1.686 do Código Civil`;
+    default:
+      return regime || '[regime de bens não informado]';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Declaratória de União Estável
+// ---------------------------------------------------------------------------
+
+export function gerarMinutaUniaoEstavel(f: FormularioUniaoEstavel): MinutaGerada {
+  const dataExtenso = dataAtualExtenso();
+  const linhas: string[] = [];
+
+  const companheirosQualif = juntarComE(
+    f.companheiros.map(
+      (c, i) => `${f.companheiros.length > 1 ? `${i + 1}) ` : ''}${qualificacaoPessoa(c)}`
+    )
+  );
+
+  linhas.push(
+    `SAIBAM todos quantos esta escritura pública declaratória de união estável virem que, aos ${dataExtenso}, nesta cidade de Volta Redonda, Estado do Rio de Janeiro, perante mim, Tabelião(a) deste Ofício, compareceram como DECLARANTES:`
+  );
+  linhas.push('');
+  linhas.push(`${companheirosQualif}.`);
+  linhas.push('');
+  linhas.push(
+    `E, pelos declarantes, devidamente identificados e capazes, me foi dito que vivem em união estável, configurada por convivência pública, contínua e duradoura, estabelecida com o objetivo de constituição de família, nos termos do art. 1.723 do Código Civil, desde ${
+      f.dataInicioUniao ? formatarDataExtenso(f.dataInicioUniao) : '[data não informada]'
+    }, residindo em comum no seguinte endereço: ${f.enderecoComum || '[endereço não informado]'}.`
+  );
+  linhas.push('');
+  linhas.push(
+    `Que, nos termos do art. 1.725 do Código Civil, regulam os efeitos patrimoniais desta união estável pelo regime da ${textoRegimeBens(
+      f.regimeBens,
+      'uniao'
+    )}.`
+  );
+
+  if (f.filhos && f.filhos.trim().length > 0) {
+    linhas.push('');
+    linhas.push(`Que da união resultou(aram) o(s) seguinte(s) filho(s): ${f.filhos}.`);
+  }
+
+  linhas.push('');
+  linhas.push(
+    'Que esta declaração produz efeitos entre os declarantes e perante terceiros, nos termos da legislação civil, podendo ser levada a registro e utilizada para os fins de direito, inclusive previdenciários, patrimoniais e sucessórios.'
+  );
+
+  if (f.testemunhas.length > 0) {
+    linhas.push('');
+    linhas.push('TESTEMUNHAS:');
+    linhas.push('');
+    f.testemunhas.forEach((t, i, arr) => {
+      linhas.push(`${qualificacaoTestemunha(t)}.`);
+      if (i < arr.length - 1) linhas.push('');
+    });
+  }
+
+  const assinantes = [
+    ...f.companheiros.map((c) => c.nome || 'Declarante'),
+    ...f.testemunhas.map((t) => t.nome || 'Testemunha'),
+  ];
+
+  return montarMinuta({
+    titulo: 'ESCRITURA PÚBLICA DECLARATÓRIA DE UNIÃO ESTÁVEL',
+    corpoLinhas: linhas,
+    fechamentoLinhas: [
+      'Assim o disseram e me pediram que lavrasse a presente escritura, que, feita, leram e acharam conforme, outorgam e assinam.',
+      `Volta Redonda/RJ, ${dataExtenso}.`,
+    ],
+    assinantes,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pacto Antenupcial
+// ---------------------------------------------------------------------------
+
+export function gerarMinutaPactoAntenupcial(f: FormularioPactoAntenupcial): MinutaGerada {
+  const dataExtenso = dataAtualExtenso();
+  const linhas: string[] = [];
+
+  const nubentesQualif = juntarComE(
+    f.nubentes.map((n, i) => `${f.nubentes.length > 1 ? `${i + 1}) ` : ''}${qualificacaoPessoa(n)}`)
+  );
+
+  linhas.push(
+    `SAIBAM todos quantos esta escritura pública de pacto antenupcial virem que, aos ${dataExtenso}, nesta cidade de Volta Redonda, Estado do Rio de Janeiro, perante mim, Tabelião(a) deste Ofício, compareceram como NUBENTES:`
+  );
+  linhas.push('');
+  linhas.push(`${nubentesQualif}.`);
+  linhas.push('');
+  linhas.push(
+    `E, pelos nubentes, devidamente identificados e capazes, me foi dito que pretendem contrair matrimônio${
+      f.dataPrevistaCasamento ? `, com previsão para ${formatarDataExtenso(f.dataPrevistaCasamento)},` : ''
+    } e que, antes da celebração do casamento, resolvem regular, por meio deste pacto antenupcial, nos termos do art. 1.653 e seguintes do Código Civil, o regime de bens que vigorará entre ambos, optando pelo regime de ${textoRegimeBens(
+      f.regimeBens,
+      'casamento'
+    )}.`
+  );
+
+  if (f.bensParticulares && f.bensParticulares.trim().length > 0) {
+    linhas.push('');
+    linhas.push(
+      `Declaram os nubentes que possuem, antes do casamento, os seguintes bens particulares, que permanecerão sob titularidade exclusiva de cada um, na forma do regime ora pactuado: ${f.bensParticulares}.`
+    );
+  }
+
+  if (f.clausulasEspecificas && f.clausulasEspecificas.trim().length > 0) {
+    linhas.push('');
+    linhas.push(`CLÁUSULAS ESPECÍFICAS: ${f.clausulasEspecificas}`);
+  }
+
+  linhas.push('');
+  linhas.push(
+    'O presente pacto somente produzirá efeitos perante terceiros após a celebração do casamento e o registro deste instrumento no Livro de Registro de Pactos Antenupciais do Ofício de Registro de Imóveis do domicílio dos cônjuges, nos termos do art. 1.657 do Código Civil.'
+  );
+
+  if (f.testemunhas.length > 0) {
+    linhas.push('');
+    linhas.push('TESTEMUNHAS:');
+    linhas.push('');
+    f.testemunhas.forEach((t, i, arr) => {
+      linhas.push(`${qualificacaoTestemunha(t)}.`);
+      if (i < arr.length - 1) linhas.push('');
+    });
+  }
+
+  const assinantes = [
+    ...f.nubentes.map((n) => n.nome || 'Nubente'),
+    ...f.testemunhas.map((t) => t.nome || 'Testemunha'),
+  ];
+
+  return montarMinuta({
+    titulo: 'ESCRITURA PÚBLICA DE PACTO ANTENUPCIAL',
+    corpoLinhas: linhas,
+    fechamentoLinhas: [
+      'Assim o disseram e me pediram que lavrasse a presente escritura, que, feita, leram e acharam conforme, outorgam e assinam.',
+      `Volta Redonda/RJ, ${dataExtenso}.`,
+    ],
+    assinantes,
   });
 }

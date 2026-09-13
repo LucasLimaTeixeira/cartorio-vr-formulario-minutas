@@ -118,6 +118,31 @@ export interface FormularioProcuracao {
   outros: OutrosPoderes[];
 }
 
+export interface FormularioUniaoEstavel {
+  companheiros: Pessoa[];
+  dataInicioUniao: string;
+  regimeBens: string;
+  enderecoComum: string;
+  filhos: string;
+  testemunhas: Testemunha[];
+}
+
+export interface FormularioPactoAntenupcial {
+  nubentes: Pessoa[];
+  regimeBens: string;
+  clausulasEspecificas: string;
+  dataPrevistaCasamento: string;
+  bensParticulares: string;
+  testemunhas: Testemunha[];
+}
+
+export const REGIMES_BENS = [
+  'Comunhão Parcial de Bens',
+  'Comunhão Universal de Bens',
+  'Separação Total de Bens',
+  'Participação Final nos Aquestos',
+];
+
 export const PODERES_OPCOES = [
   'BANCÁRIA',
   'INSS',
