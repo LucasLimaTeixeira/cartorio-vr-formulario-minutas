@@ -291,13 +291,24 @@
 		transform: translateY(-1px);
 	}
 
-	.attendant-card img {
+	    .attendant-card img,
+	    .attendant-avatar {
 		width: 2.65rem;
 		height: 2.65rem;
 		border: 2px solid #b9ded8;
 		border-radius: 50%;
 		object-fit: cover;
 	}
+
+	    .attendant-avatar {
+		    display: grid;
+		    place-items: center;
+		    flex: 0 0 auto;
+		    background: #dff4f0;
+		    color: #155e63;
+		    font-size: 0.75rem;
+		    font-weight: 800;
+	    }
 
 	.attendant-card div {
 		display: flex;
@@ -593,7 +604,8 @@
 		gap: 0.85rem;
 	}
 
-	.attendant-profile-heading img {
+	.attendant-profile-heading img,
+	.attendant-profile-heading .attendant-avatar {
 		width: 4rem;
 		height: 4rem;
 		border: 3px solid #76d6d0;

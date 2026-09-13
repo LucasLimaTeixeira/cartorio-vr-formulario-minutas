@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import {
   Pessoa,
@@ -49,10 +49,10 @@ function TermosCondicoes() {
 }
 
 const atendentesAgenda = [
-  { id: 'ana', nome: 'Ana Martins', funcao: 'Escrevente', atos: 5, foto: 'https://i.pravatar.cc/160?img=47' },
-  { id: 'bruno', nome: 'Bruno Costa', funcao: 'Substituto', atos: 4, foto: 'https://i.pravatar.cc/160?img=12' },
-  { id: 'carla', nome: 'Carla Mendes', funcao: 'Escrevente', atos: 3, foto: 'https://i.pravatar.cc/160?img=32' },
-  { id: 'diego', nome: 'Diego Alves', funcao: 'Auxiliar', atos: 2, foto: 'https://i.pravatar.cc/160?img=68' },
+  { id: 'ana', nome: 'Ana Martins', iniciais: 'AM', funcao: 'Escrevente', atos: 5 },
+  { id: 'bruno', nome: 'Bruno Costa', iniciais: 'BC', funcao: 'Substituto', atos: 4 },
+  { id: 'carla', nome: 'Carla Mendes', iniciais: 'CM', funcao: 'Escrevente', atos: 3 },
+  { id: 'diego', nome: 'Diego Alves', iniciais: 'DA', funcao: 'Auxiliar', atos: 2 },
 ];
 
 const horariosAgenda = Array.from({ length: 18 }, (_, index) => {
@@ -176,23 +176,32 @@ function PainelAtendente({ atendente, agendamentos, onVoltar }: PainelAtendenteP
   const hoje = new Date(2026, 8, 13);
   const inicioSemana = inicioDaSemana(hoje);
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const agendamentosDoAtendente = agendamentos.filter((item) => item.atendente === atendente.id);
-  const atosRealizados = agendamentosDoAtendente.filter((item) => item.realizado);
+  const agendamentosDoAtendente = useMemo(
+    () => agendamentos.filter((item) => item.atendente === atendente.id),
+    [agendamentos, atendente.id],
+  );
+  const atosRealizados = useMemo(
+    () => agendamentosDoAtendente.filter((item) => item.realizado),
+    [agendamentosDoAtendente],
+  );
   const quantidadeNoPeriodo = (inicio: Date, fim?: Date) => atosRealizados.filter((item) => {
     const data = converterDataParaDate(item.data);
     return data >= inicio && (!fim || data <= fim);
   }).length;
-  const agendamentosFiltrados = agendamentosDoAtendente.filter((item) => {
-    const correspondeCliente = item.cliente.toLowerCase().includes(buscaCliente.toLowerCase());
-    return correspondeCliente && (!dataFiltro || item.data === dataFiltro);
-  });
+  const agendamentosFiltrados = useMemo(() => {
+    const buscaNormalizada = buscaCliente.toLowerCase();
+    return agendamentosDoAtendente.filter((item) => {
+      const correspondeCliente = item.cliente.toLowerCase().includes(buscaNormalizada);
+      return correspondeCliente && (!dataFiltro || item.data === dataFiltro);
+    });
+  }, [agendamentosDoAtendente, buscaCliente, dataFiltro]);
 
   return (
     <div className="attendant-dashboard">
       <div className="attendant-dashboard-heading">
         <button type="button" className="attendant-back-button" onClick={onVoltar}>Voltar para agenda</button>
         <div className="attendant-profile-heading">
-          <img src={atendente.foto} alt={`Foto de ${atendente.nome}`} />
+          <span className="attendant-avatar" aria-label={`Iniciais de ${atendente.nome}`}>{atendente.iniciais}</span>
           <div><span className="agenda-kicker"><UsersRound className="w-4 h-4" /> Painel do atendente</span><h2>{atendente.nome}</h2><p>{atendente.funcao} · visão operacional de atendimentos</p></div>
         </div>
       </div>
@@ -236,12 +245,27 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
   const [mensagemAgenda, setMensagemAgenda] = useState('');
   const [atendenteEmFoco, setAtendenteEmFoco] = useState<string | null>(null);
 
-  const agendamentosDoDia = agendamentos.filter((item) => item.data === dataAgenda);
-  const agendamentosComSala = agendamentosDoDia.filter((item) => item.usaSala !== false);
-  const agendamentosSemSala = agendamentosDoDia.filter((item) => item.usaSala === false);
+  const agendamentosDoDia = useMemo(
+    () => agendamentos.filter((item) => item.data === dataAgenda),
+    [agendamentos, dataAgenda],
+  );
+  const agendamentosComSala = useMemo(
+    () => agendamentosDoDia.filter((item) => item.usaSala !== false),
+    [agendamentosDoDia],
+  );
+  const agendamentosSemSala = useMemo(
+    () => agendamentosDoDia.filter((item) => item.usaSala === false),
+    [agendamentosDoDia],
+  );
+  const horariosCheios = useMemo(
+    () => horariosAgenda.filter((horario) => agendamentosComSala.filter((item) => item.horario === horario).length >= salasAgenda.length),
+    [agendamentosComSala],
+  );
+  const salasLivres = useMemo(
+    () => salasAgenda.filter((sala) => !agendamentosComSala.some((item) => item.horario === horarioSelecionado && item.sala === sala)),
+    [agendamentosComSala, horarioSelecionado],
+  );
   const totalAtos = agendamentosDoDia.length;
-  const horariosCheios = horariosAgenda.filter((horario) => agendamentosComSala.filter((item) => item.horario === horario).length >= salasAgenda.length);
-  const salasLivres = salasAgenda.filter((sala) => !agendamentosComSala.some((item) => item.horario === horarioSelecionado && item.sala === sala));
   const cadastroParaAgendar = cadastrosAguardando.find((cadastro) => cadastro.id.toString() === cadastroSelecionado) ?? cadastrosAguardando[0];
   const usaSalaSelecionada = cadastroParaAgendar?.usaSala ?? true;
 
@@ -358,7 +382,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
         <div className="attendant-grid">
           {atendentesAgenda.map((atendente) => (
             <button type="button" className="attendant-card" key={atendente.id} onClick={() => setAtendenteEmFoco(atendente.id)}>
-              <img src={atendente.foto} alt={`Foto de ${atendente.nome}`} />
+              <span className="attendant-avatar" aria-label={`Iniciais de ${atendente.nome}`}>{atendente.iniciais}</span>
               <div><strong>{atendente.nome}</strong><span>{atendente.funcao}</span></div>
               <b>{agendamentosDoDia.filter((item) => item.atendente === atendente.id).length}<small> atos</small></b>
             </button>

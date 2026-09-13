@@ -91,6 +91,8 @@ Para permitir acesso por outros dispositivos na mesma rede:
 npm run dev -- --host 0.0.0.0
 ```
 
+Use essa opção somente em uma rede confiável. O servidor de desenvolvimento do Vite não deve ser exposto à internet nem usado como servidor de produção. Para uso local, prefira o comando padrão, que escuta apenas no computador.
+
 ## Fluxo de uso
 
 1. Abra o formulário desejado pela sidebar.
@@ -109,6 +111,8 @@ Os campos podem ser preenchidos parcialmente para gerar um rascunho. Antes de ut
 | --- | --- |
 | `npm run dev` | Inicia o servidor de desenvolvimento com Vite. |
 | `npm run build` | Gera a versão otimizada em `dist/`. |
+| `npm run typecheck` | Verifica os tipos TypeScript sem gerar arquivos. |
+| `npm run check` | Executa lint, typecheck e build em sequência. |
 | `npm run preview` | Serve localmente a versão gerada em `dist/`. |
 | `npm run lint` | Executa a verificação do ESLint. |
 
