@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import {
   Pessoa,
   DadosBancarios,
@@ -21,6 +21,7 @@ import {
 import { MinutaModal, TipoMinuta } from './components/MinutaModal';
 
 const itensMenu = [
+  { id: 'agenda', label: 'Agenda', icon: CalendarDays },
   { id: 'procuracao', label: 'Procuração', icon: FileText },
   { id: 'apostilamento', label: 'Apostilamento', icon: Shield },
   { id: 'certidoes', label: 'Certidões', icon: FileText },
@@ -47,11 +48,390 @@ function TermosCondicoes() {
   );
 }
 
+const atendentesAgenda = [
+  { id: 'ana', nome: 'Ana Martins', funcao: 'Escrevente', atos: 5, foto: 'https://i.pravatar.cc/160?img=47' },
+  { id: 'bruno', nome: 'Bruno Costa', funcao: 'Substituto', atos: 4, foto: 'https://i.pravatar.cc/160?img=12' },
+  { id: 'carla', nome: 'Carla Mendes', funcao: 'Escrevente', atos: 3, foto: 'https://i.pravatar.cc/160?img=32' },
+  { id: 'diego', nome: 'Diego Alves', funcao: 'Auxiliar', atos: 2, foto: 'https://i.pravatar.cc/160?img=68' },
+];
+
+const horariosAgenda = Array.from({ length: 18 }, (_, index) => {
+  const minutosDoDia = 8 * 60 + 30 + index * 30;
+  const hora = Math.floor(minutosDoDia / 60).toString().padStart(2, '0');
+  const minutos = (minutosDoDia % 60).toString().padStart(2, '0');
+  return `${hora}:${minutos}`;
+});
+const salasAgenda = ['Sala 1', 'Sala 2', 'Sala 3'];
+type CadastroAgenda = {
+  id: number;
+  formulario: string;
+  descricao: string;
+  cliente: string;
+  usaSala: boolean;
+};
+
+type AgendamentoAgenda = {
+  id: number;
+  data: string;
+  horario: string;
+  sala: string;
+  atendente: string;
+  ato: string;
+  cliente: string;
+  usaSala: boolean;
+  realizado?: boolean;
+};
+
+const atosAgendaIniciais: AgendamentoAgenda[] = [
+  { id: 1, data: '2026-09-13', horario: '08:30', sala: 'Sala 1', atendente: 'ana', ato: 'Procuração pública', cliente: 'Mariana Souza', usaSala: true },
+  { id: 2, data: '2026-09-13', horario: '09:30', sala: 'Sala 1', atendente: 'ana', ato: 'Escritura de compra e venda', cliente: 'Rafael Oliveira', usaSala: true },
+  { id: 3, data: '2026-09-13', horario: '09:30', sala: 'Sala 2', atendente: 'bruno', ato: 'Pacto antenupcial', cliente: 'Beatriz Lima', usaSala: true },
+  { id: 4, data: '2026-09-13', horario: '09:30', sala: 'Sala 3', atendente: 'carla', ato: 'União estável', cliente: 'João e Camila', usaSala: true },
+  { id: 5, data: '2026-09-13', horario: '10:30', sala: 'Sem sala', atendente: 'diego', ato: 'Certidão', cliente: 'Luciana Alves', usaSala: false },
+  { id: 6, data: '2026-09-13', horario: '10:30', sala: 'Sem sala', atendente: 'ana', ato: 'Apostilamento', cliente: 'Pedro Martins', usaSala: false },
+  { id: 7, data: '2026-09-13', horario: '11:30', sala: 'Sala 3', atendente: 'bruno', ato: 'Procuração pública', cliente: 'Fernanda Costa', usaSala: true },
+  { id: 8, data: '2026-09-13', horario: '14:30', sala: 'Sala 1', atendente: 'carla', ato: 'Escritura declaratória', cliente: 'Carlos Mendes', usaSala: true },
+];
+
+function formatarDataAgenda(dataIso: string) {
+  const [ano, mes, dia] = dataIso.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+function converterDataAgenda(dataTexto: string) {
+  const partes = dataTexto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!partes) return null;
+
+  const [, dia, mes, ano] = partes;
+  const data = new Date(Number(ano), Number(mes) - 1, Number(dia));
+  if (data.getFullYear() !== Number(ano) || data.getMonth() !== Number(mes) - 1 || data.getDate() !== Number(dia)) return null;
+  return `${ano}-${mes}-${dia}`;
+}
+
+interface CampoDataProps {
+  value: string;
+  onChange: (value: string) => void;
+  className: string;
+}
+
+function CampoData({ value, onChange, className }: CampoDataProps) {
+  const [texto, setTexto] = useState(value ? formatarDataAgenda(value) : '');
+
+  useEffect(() => {
+    setTexto(value ? formatarDataAgenda(value) : '');
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      value={texto}
+      onChange={(event) => {
+        const novoTexto = event.target.value.replace(/[^\d/]/g, '').slice(0, 10);
+        setTexto(novoTexto);
+        const dataIso = converterDataAgenda(novoTexto);
+        if (dataIso) onChange(dataIso);
+      }}
+      onBlur={() => {
+        const dataIso = converterDataAgenda(texto);
+        if (dataIso) {
+          onChange(dataIso);
+          setTexto(formatarDataAgenda(dataIso));
+        } else if (!texto) {
+          onChange('');
+        } else {
+          setTexto(value ? formatarDataAgenda(value) : '');
+        }
+      }}
+      className={className}
+      placeholder="dd/mm/aaaa"
+      inputMode="numeric"
+      maxLength={10}
+    />
+  );
+}
+
+function inicioDaSemana(data: Date) {
+  const resultado = new Date(data);
+  const diaDaSemana = resultado.getDay();
+  const diferenca = diaDaSemana === 0 ? -6 : 1 - diaDaSemana;
+  resultado.setDate(resultado.getDate() + diferenca);
+  resultado.setHours(0, 0, 0, 0);
+  return resultado;
+}
+
+function converterDataParaDate(dataIso: string) {
+  const [ano, mes, dia] = dataIso.split('-').map(Number);
+  return new Date(ano, mes - 1, dia);
+}
+
+interface PainelAtendenteProps {
+  atendente: typeof atendentesAgenda[number];
+  agendamentos: AgendamentoAgenda[];
+  onVoltar: () => void;
+}
+
+function PainelAtendente({ atendente, agendamentos, onVoltar }: PainelAtendenteProps) {
+  const [buscaCliente, setBuscaCliente] = useState('');
+  const [dataFiltro, setDataFiltro] = useState('');
+  const hoje = new Date(2026, 8, 13);
+  const inicioSemana = inicioDaSemana(hoje);
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const agendamentosDoAtendente = agendamentos.filter((item) => item.atendente === atendente.id);
+  const atosRealizados = agendamentosDoAtendente.filter((item) => item.realizado);
+  const quantidadeNoPeriodo = (inicio: Date, fim?: Date) => atosRealizados.filter((item) => {
+    const data = converterDataParaDate(item.data);
+    return data >= inicio && (!fim || data <= fim);
+  }).length;
+  const agendamentosFiltrados = agendamentosDoAtendente.filter((item) => {
+    const correspondeCliente = item.cliente.toLowerCase().includes(buscaCliente.toLowerCase());
+    return correspondeCliente && (!dataFiltro || item.data === dataFiltro);
+  });
+
+  return (
+    <div className="attendant-dashboard">
+      <div className="attendant-dashboard-heading">
+        <button type="button" className="attendant-back-button" onClick={onVoltar}>Voltar para agenda</button>
+        <div className="attendant-profile-heading">
+          <img src={atendente.foto} alt={`Foto de ${atendente.nome}`} />
+          <div><span className="agenda-kicker"><UsersRound className="w-4 h-4" /> Painel do atendente</span><h2>{atendente.nome}</h2><p>{atendente.funcao} · visão operacional de atendimentos</p></div>
+        </div>
+      </div>
+
+      <div className="attendant-metrics">
+        <div><span>Realizados no mês</span><strong>{quantidadeNoPeriodo(inicioMes)}</strong></div>
+        <div><span>Realizados na semana</span><strong>{quantidadeNoPeriodo(inicioSemana, new Date(inicioSemana.getFullYear(), inicioSemana.getMonth(), inicioSemana.getDate() + 6))}</strong></div>
+        <div><span>Realizados no ano</span><strong>{quantidadeNoPeriodo(new Date(hoje.getFullYear(), 0, 1), new Date(hoje.getFullYear(), 11, 31))}</strong></div>
+        <div><span>Total na agenda</span><strong>{agendamentosDoAtendente.length}</strong></div>
+      </div>
+
+      <section className="agenda-section">
+        <div className="agenda-section-heading"><div><span className="agenda-kicker"><CalendarDays className="w-4 h-4" /> Histórico e agenda</span><h3>Todos os agendamentos</h3></div><span className="agenda-section-note">{agendamentosFiltrados.length} resultado(s)</span></div>
+        <div className="attendant-filters">
+          <label>Buscar cliente<input type="search" value={buscaCliente} onChange={(event) => setBuscaCliente(event.target.value)} placeholder="Nome do cliente" /></label>
+          <label>Filtrar por data<input type="text" value={dataFiltro ? formatarDataAgenda(dataFiltro) : ''} onChange={(event) => { const texto = event.target.value.replace(/[^\d/]/g, '').slice(0, 10); const data = converterDataAgenda(texto); setDataFiltro(data ?? ''); }} onBlur={(event) => { if (!dataFiltro && event.target.value) event.currentTarget.value = ''; }} placeholder="dd/mm/aaaa" inputMode="numeric" /></label>
+        </div>
+        <div className="attendant-appointments">
+          {agendamentosFiltrados.length > 0 ? agendamentosFiltrados.map((agendamento) => <article className={`attendant-appointment ${agendamento.realizado ? 'is-done' : ''}`} key={agendamento.id}><div><strong>{agendamento.cliente}</strong><span>{agendamento.ato} · {agendamento.sala}</span></div><div><b>{formatarDataAgenda(agendamento.data)} às {agendamento.horario}</b><small>{agendamento.realizado ? 'Realizado' : 'Agendado'}</small></div></article>) : <p className="pending-empty">Nenhum agendamento encontrado para os filtros selecionados.</p>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+interface AgendaAtendimentosProps {
+  cadastrosAguardando: CadastroAgenda[];
+  onCadastroAgendado: (id: number) => void;
+  onAgendamentoRemarcado: (cadastro: CadastroAgenda) => void;
+}
+
+function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAgendamentoRemarcado }: AgendaAtendimentosProps) {
+  const [dataAgenda, setDataAgenda] = useState('2026-09-13');
+  const [dataAgendaTexto, setDataAgendaTexto] = useState(formatarDataAgenda('2026-09-13'));
+  const [agendamentos, setAgendamentos] = useState(atosAgendaIniciais);
+  const [atendenteSelecionado, setAtendenteSelecionado] = useState('ana');
+  const [horarioSelecionado, setHorarioSelecionado] = useState('13:30');
+  const [salaSelecionada, setSalaSelecionada] = useState('Sala 1');
+  const [atoSelecionado, setAtoSelecionado] = useState('Novo atendimento');
+  const [cadastroSelecionado, setCadastroSelecionado] = useState('');
+  const [mensagemAgenda, setMensagemAgenda] = useState('');
+  const [atendenteEmFoco, setAtendenteEmFoco] = useState<string | null>(null);
+
+  const agendamentosDoDia = agendamentos.filter((item) => item.data === dataAgenda);
+  const agendamentosComSala = agendamentosDoDia.filter((item) => item.usaSala !== false);
+  const agendamentosSemSala = agendamentosDoDia.filter((item) => item.usaSala === false);
+  const totalAtos = agendamentosDoDia.length;
+  const horariosCheios = horariosAgenda.filter((horario) => agendamentosComSala.filter((item) => item.horario === horario).length >= salasAgenda.length);
+  const salasLivres = salasAgenda.filter((sala) => !agendamentosComSala.some((item) => item.horario === horarioSelecionado && item.sala === sala));
+  const cadastroParaAgendar = cadastrosAguardando.find((cadastro) => cadastro.id.toString() === cadastroSelecionado) ?? cadastrosAguardando[0];
+  const usaSalaSelecionada = cadastroParaAgendar?.usaSala ?? true;
+
+  const obterNomeAtendente = (id: string) => atendentesAgenda.find((atendente) => atendente.id === id)?.nome ?? 'Atendente';
+  const atendenteSelecionadoParaPainel = atendentesAgenda.find((atendente) => atendente.id === atendenteEmFoco);
+
+  if (atendenteSelecionadoParaPainel) {
+    return <PainelAtendente atendente={atendenteSelecionadoParaPainel} agendamentos={agendamentos} onVoltar={() => setAtendenteEmFoco(null)} />;
+  }
+
+  const cancelarAgendamento = (id: number) => {
+    const agendamento = agendamentos.find((item) => item.id === id);
+    const confirmarCancelamento = window.confirm(
+      `Deseja cancelar o atendimento de ${agendamento?.cliente ?? 'Cliente não informado'}?`
+    );
+
+    if (!confirmarCancelamento) return;
+
+    setAgendamentos((atuais) => atuais.filter((agendamento) => agendamento.id !== id));
+    setMensagemAgenda('Agendamento cancelado.');
+  };
+
+  const alternarRealizado = (id: number) => {
+    setAgendamentos((atuais) => atuais.map((agendamento) => agendamento.id === id ? { ...agendamento, realizado: !agendamento.realizado } : agendamento));
+    setMensagemAgenda('Status do atendimento atualizado.');
+  };
+
+  const remarcarAgendamento = (agendamento: typeof atosAgendaIniciais[number]) => {
+    setAgendamentos((atuais) => atuais.filter((item) => item.id !== agendamento.id));
+    onAgendamentoRemarcado({
+      id: agendamento.id,
+      formulario: agendamento.ato,
+      descricao: agendamento.ato,
+      cliente: agendamento.cliente,
+      usaSala: agendamento.usaSala !== false,
+    });
+    setCadastroSelecionado(agendamento.id.toString());
+    setAtendenteSelecionado(agendamento.atendente);
+    setHorarioSelecionado(agendamento.horario);
+    setSalaSelecionada(agendamento.sala);
+    setMensagemAgenda(`${agendamento.cliente} voltou para aguardando agendamento.`);
+  };
+
+  const agendarAtendimento = () => {
+    const atosNoHorario = agendamentosComSala.filter((item) => item.horario === horarioSelecionado);
+    const salaOcupada = agendamentosComSala.some((item) => item.horario === horarioSelecionado && item.sala === salaSelecionada);
+
+    if (usaSalaSelecionada && atosNoHorario.length >= salasAgenda.length) {
+      setMensagemAgenda(`O horário das ${horarioSelecionado} já atingiu o limite de ${salasAgenda.length} salas.`);
+      return;
+    }
+
+    if (usaSalaSelecionada && salaOcupada) {
+      setMensagemAgenda(`${salaSelecionada} já está ocupada às ${horarioSelecionado}. Escolha outra sala.`);
+      return;
+    }
+
+    setAgendamentos((atuais) => [
+      ...atuais,
+      {
+        id: Date.now(),
+        data: dataAgenda,
+        horario: horarioSelecionado,
+        sala: usaSalaSelecionada ? salaSelecionada : 'Sem sala',
+        atendente: atendenteSelecionado,
+        ato: cadastroParaAgendar?.descricao ?? atoSelecionado,
+        cliente: cadastroParaAgendar?.cliente ?? 'Cliente não informado',
+        usaSala: usaSalaSelecionada,
+        realizado: false,
+      },
+    ]);
+    if (cadastroParaAgendar) onCadastroAgendado(cadastroParaAgendar.id);
+    setMensagemAgenda('Atendimento reservado na agenda local.');
+  };
+
+  return (
+    <div className="agenda-screen">
+      <div className="agenda-heading">
+        <div>
+          <p className="agenda-kicker"><CalendarDays className="w-4 h-4" /> Central de atendimento</p>
+          <h2>Agenda do cartório</h2>
+          <p>Uma visão rápida de quem atende, onde e quando. A grade respeita o limite de três salas por horário.</p>
+        </div>
+        <label className="agenda-date-field">
+          <span>Dia em foco</span>
+          <input
+            type="text"
+            value={dataAgendaTexto}
+            onChange={(event) => {
+              const texto = event.target.value.replace(/[^\d/]/g, '').slice(0, 10);
+              setDataAgendaTexto(texto);
+              const dataIso = converterDataAgenda(texto);
+              if (dataIso) setDataAgenda(dataIso);
+            }}
+            onBlur={() => setDataAgendaTexto(formatarDataAgenda(dataAgenda))}
+            inputMode="numeric"
+            placeholder="dd/mm/aaaa"
+            aria-label="Dia em foco no formato dia, mês e ano"
+          />
+        </label>
+      </div>
+
+      <div className="agenda-summary">
+        <div className="agenda-summary-item"><Clock3 /><div><strong>{totalAtos}</strong><span>atos agendados</span></div></div>
+        <div className="agenda-summary-item"><DoorOpen /><div><strong>{salasAgenda.length}</strong><span>salas disponíveis</span></div></div>
+        <div className={`agenda-summary-item ${horariosCheios.length > 0 ? 'is-warning' : 'is-ok'}`}>
+          {horariosCheios.length > 0 ? <AlertTriangle /> : <CheckCircle2 />}
+          <div><strong>{horariosCheios.length}</strong><span>horários no limite</span></div>
+        </div>
+      </div>
+
+      <section className="agenda-section">
+        <div className="agenda-section-heading"><div><span className="agenda-kicker"><UsersRound className="w-4 h-4" /> Equipe em serviço</span><h3>Atos por atendente</h3></div><span className="agenda-section-note">{formatarDataAgenda(dataAgenda)}</span></div>
+        <div className="attendant-grid">
+          {atendentesAgenda.map((atendente) => (
+            <button type="button" className="attendant-card" key={atendente.id} onClick={() => setAtendenteEmFoco(atendente.id)}>
+              <img src={atendente.foto} alt={`Foto de ${atendente.nome}`} />
+              <div><strong>{atendente.nome}</strong><span>{atendente.funcao}</span></div>
+              <b>{agendamentosDoDia.filter((item) => item.atendente === atendente.id).length}<small> atos</small></b>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="agenda-section pending-section">
+        <div className="agenda-section-heading"><div><span className="agenda-kicker"><Clock3 className="w-4 h-4" /> Fila de atendimento</span><h3>Aguardando agendamento</h3></div><span className="agenda-section-note">{cadastrosAguardando.length} cadastro(s)</span></div>
+        {cadastrosAguardando.length > 0 ? <div className="pending-grid">{cadastrosAguardando.map((cadastro) => <article className="pending-card" key={cadastro.id}><span>{cadastro.formulario}</span><strong>{cadastro.cliente}</strong><small>{cadastro.descricao} · pronto para escolher horário e sala</small></article>)}</div> : <p className="pending-empty">Nenhum formulário aguardando agendamento. Cadastre um formulário para ele aparecer aqui.</p>}
+      </section>
+
+      <section className="agenda-section no-room-section">
+        <div className="agenda-section-heading"><div><span className="agenda-kicker"><FileText className="w-4 h-4" /> Fluxo sem sala</span><h3>Certidões e apostilamentos</h3></div><span className="agenda-section-note">{agendamentosSemSala.length} atendimento(s)</span></div>
+        {agendamentosSemSala.length > 0 ? <div className="no-room-grid">{agendamentosSemSala.map((atendimento) => <article className={`no-room-card ${atendimento.realizado ? 'is-done' : ''}`} key={atendimento.id}><div><span>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.horario} · {atendimento.ato}</span><strong>{atendimento.cliente}</strong><small>Atendimento sem utilização de sala · {obterNomeAtendente(atendimento.atendente)}</small></div><div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div></article>)}</div> : <p className="pending-empty">Nenhuma certidão ou apostilamento agendado para este dia.</p>}
+      </section>
+
+      <div className="agenda-columns">
+        <section className="agenda-section schedule-section">
+          <div className="agenda-section-heading"><div><span className="agenda-kicker"><DoorOpen className="w-4 h-4" /> Operação</span><h3>Mapa de salas</h3></div><span className="agenda-section-note">Máximo: 3 atos / horário</span></div>
+          <div className="schedule-grid">
+            <div className="schedule-grid-header"><span>Horário</span>{salasAgenda.map((sala) => <span key={sala}>{sala}</span>)}</div>
+            {horariosAgenda.map((horario) => {
+              const atosDoHorario = agendamentosComSala.filter((item) => item.horario === horario);
+              return <div className={`schedule-grid-row ${atosDoHorario.length === 3 ? 'is-full' : ''}`} key={horario}>
+                <strong>{horario}</strong>
+                {salasAgenda.map((sala) => {
+                  const atendimento = atosDoHorario.find((item) => item.sala === sala);
+                  return <div className={`schedule-room ${atendimento ? 'is-booked' : 'is-free'} ${atendimento?.realizado ? 'is-done' : ''}`} key={sala}>
+                    {atendimento ? <><b>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.ato}</b><span className="schedule-client">Cliente: {atendimento.cliente}</span><span>{obterNomeAtendente(atendimento.atendente)}</span><div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div></> : <span>Livre</span>}
+                  </div>;
+                })}
+              </div>;
+            })}
+          </div>
+        </section>
+
+        <section className="agenda-section booking-section">
+          <div className="agenda-section-heading"><div><span className="agenda-kicker"><Plus className="w-4 h-4" /> Ação rápida</span><h3>Novo atendimento</h3></div></div>
+          <div className="booking-form">
+            <label>Cadastro<select value={cadastroParaAgendar?.id.toString() ?? ''} onChange={(event) => setCadastroSelecionado(event.target.value)}><option value="">Atendimento avulso</option>{cadastrosAguardando.map((cadastro) => <option value={cadastro.id} key={cadastro.id}>{cadastro.formulario} · {cadastro.descricao}</option>)}</select></label>
+            <label>Atendente<select value={atendenteSelecionado} onChange={(event) => setAtendenteSelecionado(event.target.value)}>{atendentesAgenda.map((atendente) => <option value={atendente.id} key={atendente.id}>{atendente.nome}</option>)}</select></label>
+            <label>Tipo de ato<select value={atoSelecionado} onChange={(event) => setAtoSelecionado(event.target.value)}><option>Novo atendimento</option><option>Procuração pública</option><option>Escritura</option><option>Certidão</option><option>Apostilamento</option></select></label>
+            <label>Horário<select value={horarioSelecionado} onChange={(event) => setHorarioSelecionado(event.target.value)}>{horariosAgenda.map((horario) => <option value={horario} key={horario}>{horario}{horariosCheios.includes(horario) ? ' · lotado' : ''}</option>)}</select></label>
+            {usaSalaSelecionada && <label>Sala<select value={salaSelecionada} onChange={(event) => setSalaSelecionada(event.target.value)}>{salasAgenda.map((sala) => <option value={sala} key={sala}>{sala}{!salasLivres.includes(sala) ? ' · ocupada' : ''}</option>)}</select></label>}
+            <button type="button" onClick={agendarAtendimento} className="booking-button" disabled={usaSalaSelecionada && (horariosCheios.includes(horarioSelecionado) || !salasLivres.includes(salaSelecionada))}><CheckCircle2 className="w-4 h-4" /> {usaSalaSelecionada ? 'Reservar sala e horário' : 'Reservar horário sem sala'}</button>
+            {mensagemAgenda && <p className="booking-feedback">{mensagemAgenda}</p>}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [abaAtiva, setAbaAtiva] = useState('procuracao');
   const [minutaAberta, setMinutaAberta] = useState<TipoMinuta | null>(null);
   const [temaEscuro, setTemaEscuro] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [cadastrosAguardando, setCadastrosAguardando] = useState<CadastroAgenda[]>([]);
+
+  const cadastrarNaAgenda = (formulario: string, descricao: string, cliente: string, usaSala = true) => {
+    setCadastrosAguardando((atuais) => [
+      ...atuais,
+      { id: Date.now(), formulario, descricao, cliente: cliente.trim() || 'Cliente não informado', usaSala },
+    ]);
+    setAbaAtiva('agenda');
+    setMenuAberto(false);
+  };
+
+  const removerCadastroAgendado = (id: number) => {
+    setCadastrosAguardando((atuais) => atuais.filter((cadastro) => cadastro.id !== id));
+  };
   const [formulario, setFormulario] = useState<FormularioProcuracao>({
     outorgantes: [{
       id: '1',
@@ -833,10 +1213,9 @@ orgaoExpedidor: '',
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Expedição RG</label>
-          <input
-            type="date"
+          <CampoData
             value={pessoa.dataExpedicaoRg}
-            onChange={(e) => onChange('dataExpedicaoRg', e.target.value)}
+            onChange={(value) => onChange('dataExpedicaoRg', value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           />
         </div>
@@ -973,10 +1352,9 @@ orgaoExpedidor: '',
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Expedição RG</label>
-          <input
-            type="date"
+          <CampoData
             value={requerente.dataExpedicaoRg}
-            onChange={(e) => atualizarRequerente(requerente.id, 'dataExpedicaoRg', e.target.value)}
+            onChange={(value) => atualizarRequerente(requerente.id, 'dataExpedicaoRg', value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           />
         </div>
@@ -1044,12 +1422,11 @@ orgaoExpedidor: '',
 
       <div className="md:col-span-1 print:col-span-1">
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Nascimento</label>
-        <input
-          type="date"
-          value={requerente.dataNascimento}
-          onChange={(e) => atualizarRequerente(requerente.id, 'dataNascimento', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-        />
+          <CampoData
+            value={requerente.dataNascimento}
+            onChange={(value) => atualizarRequerente(requerente.id, 'dataNascimento', value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+          />
       </div>
 
       <div className="md:col-span-2 print:col-span-2">
@@ -1133,10 +1510,9 @@ const renderizarCamposRequerenteCertidao = (requerente: Requerente, index: numbe
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Expedição RG</label>
-        <input
-          type="date"
+        <CampoData
           value={requerente.dataExpedicaoRg}
-          onChange={(e) => atualizarRequerenteCertidao(requerente.id, 'dataExpedicaoRg', e.target.value)}
+          onChange={(value) => atualizarRequerenteCertidao(requerente.id, 'dataExpedicaoRg', value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
         />
       </div>
@@ -1205,10 +1581,9 @@ const renderizarCamposRequerenteCertidao = (requerente: Requerente, index: numbe
 
       <div className="md:col-span-1 print:col-span-1">
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Nascimento</label>
-        <input
-          type="date"
+        <CampoData
           value={requerente.dataNascimento}
-          onChange={(e) => atualizarRequerenteCertidao(requerente.id, 'dataNascimento', e.target.value)}
+          onChange={(value) => atualizarRequerenteCertidao(requerente.id, 'dataNascimento', value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
         />
       </div>
@@ -1298,10 +1673,9 @@ const renderizarCamposTestemunha = (
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Expedição RG</label>
-        <input
-          type="date"
+        <CampoData
           value={testemunha.dataExpedicaoRg}
-          onChange={(e) => onChange('dataExpedicaoRg', e.target.value)}
+          onChange={(value) => onChange('dataExpedicaoRg', value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
         />
       </div>
@@ -1475,6 +1849,8 @@ const renderizarCamposTestemunha = (
         {/* Área do formulário ativo */}
         <div className="app-panel bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:mb-4">
           <div className="p-6 print:p-2">
+            {abaAtiva === 'agenda' && <AgendaAtendimentos cadastrosAguardando={cadastrosAguardando} onCadastroAgendado={removerCadastroAgendado} onAgendamentoRemarcado={(cadastro) => setCadastrosAguardando((atuais) => [...atuais, cadastro])} />}
+
             {abaAtiva === 'procuracao' && (
               <div className="space-y-8 print:space-y-4">
                 {/* Seção Outorgantes */}
@@ -1990,6 +2366,13 @@ const renderizarCamposTestemunha = (
                 {/* Botões de Ação */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
                   <button
+                    onClick={() => cadastrarNaAgenda('Procuração', 'Procuração pública', formulario.outorgantes[0]?.nome || formulario.outorgados[0]?.nome || '')}
+                    className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                    Cadastrar na agenda
+                  </button>
+                  <button
                     onClick={() => setMinutaAberta('procuracao')}
                     className="minuta-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
                   >
@@ -2019,10 +2402,9 @@ const renderizarCamposTestemunha = (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Entrega</label>
-                        <input
-                          type="date"
+                        <CampoData
                           value={formularioApostilamento.dataEntrega}
-                          onChange={(e) => atualizarCampoApostilamento('dataEntrega', e.target.value)}
+                          onChange={(value) => atualizarCampoApostilamento('dataEntrega', value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
                         />
                       </div>
@@ -2142,6 +2524,13 @@ const renderizarCamposTestemunha = (
 
                 {/* Botões de Ação */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
+                  <button
+                    onClick={() => cadastrarNaAgenda('Apostilamento', 'Apostilamento', formularioApostilamento.requerentes[0]?.nome || '', false)}
+                    className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                    Cadastrar na agenda
+                  </button>
                   <button 
                     onClick={imprimirFormulario}
                     className="print-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
@@ -2164,10 +2553,9 @@ const renderizarCamposTestemunha = (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Entrega</label>
-            <input
-              type="date"
+            <CampoData
               value={formularioCertidao.dataEntrega}
-              onChange={(e) => atualizarCampoCertidao('dataEntrega', e.target.value)}
+              onChange={(value) => atualizarCampoCertidao('dataEntrega', value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             />
           </div>
@@ -2307,10 +2695,9 @@ const renderizarCamposTestemunha = (
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data</label>
-            <input
-              type="date"
+            <CampoData
               value={formularioCertidao.data}
-              onChange={(e) => atualizarCampoCertidao('data', e.target.value)}
+              onChange={(value) => atualizarCampoCertidao('data', value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             />
           </div>
@@ -2352,6 +2739,13 @@ const renderizarCamposTestemunha = (
 
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
+      <button
+        onClick={() => cadastrarNaAgenda('Certidões', 'Certidão', formularioCertidao.requerentes[0]?.nome || '', false)}
+        className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
+      >
+        <CalendarPlus className="w-4 h-4" />
+        Cadastrar na agenda
+      </button>
       <button 
         onClick={imprimirFormulario}
         className="print-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
@@ -2402,10 +2796,9 @@ const renderizarCamposTestemunha = (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data de Início da União</label>
-            <input
-              type="date"
+            <CampoData
               value={formularioUniaoEstavel.dataInicioUniao}
-              onChange={(e) => atualizarCampoUniaoEstavel('dataInicioUniao', e.target.value)}
+              onChange={(value) => atualizarCampoUniaoEstavel('dataInicioUniao', value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             />
           </div>
@@ -2485,6 +2878,13 @@ const renderizarCamposTestemunha = (
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
       <button
+        onClick={() => cadastrarNaAgenda('União Estável', 'União estável', formularioUniaoEstavel.companheiros[0]?.nome || formularioUniaoEstavel.companheiros[1]?.nome || '')}
+        className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
+      >
+        <CalendarPlus className="w-4 h-4" />
+        Cadastrar na agenda
+      </button>
+      <button
         onClick={() => setMinutaAberta('uniao_estavel')}
         className="minuta-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
       >
@@ -2541,10 +2941,9 @@ const renderizarCamposTestemunha = (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Data Prevista do Casamento</label>
-            <input
-              type="date"
+            <CampoData
               value={formularioPactoAntenupcial.dataPrevistaCasamento}
-              onChange={(e) => atualizarCampoPacto('dataPrevistaCasamento', e.target.value)}
+              onChange={(value) => atualizarCampoPacto('dataPrevistaCasamento', value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             />
           </div>
@@ -2620,6 +3019,13 @@ const renderizarCamposTestemunha = (
 
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
+      <button
+        onClick={() => cadastrarNaAgenda('Pacto Antenupcial', 'Pacto antenupcial', formularioPactoAntenupcial.requerentes[0]?.nome || '')}
+        className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
+      >
+        <CalendarPlus className="w-4 h-4" />
+        Cadastrar na agenda
+      </button>
       <button
         onClick={() => setMinutaAberta('pacto_antenupcial')}
         className="minuta-button px-6 py-3 rounded-lg transition-colors flex items-center gap-2"

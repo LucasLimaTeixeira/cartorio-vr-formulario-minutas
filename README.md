@@ -162,6 +162,8 @@ O projeto atualmente não possui backend, autenticação ou persistência de dad
 
 Quando esses recursos forem implementados, a estrutura da sidebar poderá receber o usuário autenticado sem alterar a navegação dos formulários.
 
+O plano técnico para essa evolução está em [docs/PLANO-INTEGRACAO-BANCO.md](docs/PLANO-INTEGRACAO-BANCO.md), incluindo entidades, regras de agenda, endpoints, segurança e fases de migração.
+
 ## Licença
 
 Este repositório não possui uma licença de uso definida. Consulte o responsável pelo projeto antes de reutilizar ou redistribuir o código.
