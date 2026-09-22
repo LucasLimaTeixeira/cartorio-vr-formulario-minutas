@@ -1,8 +1,8 @@
 # Gerador de Formulários e Minutas Cartorárias
 
-Aplicação web para preenchimento de formulários cartorários e geração de minutas de apoio ao atendimento do **1º Ofício de Notas de Volta Redonda/RJ**.
+Aplicação web para preenchimento de formulários cartorários e geração de minutas de apoio ao atendimento, com base preparada para operação por workspace.
 
-O sistema reúne dados de pessoas, documentos, poderes, imóveis, veículos, testemunhas, apostilamentos e solicitações de certidões em uma interface única. O preenchimento é feito localmente no navegador, sem backend ou banco de dados da aplicação.
+O sistema reúne dados de pessoas, documentos, poderes, imóveis, veículos, testemunhas, apostilamentos e solicitações de certidões em uma interface única. Os rascunhos são persistidos localmente por workspace no navegador, mas ainda não são sincronizados entre usuários ou dispositivos.
 
 ## Funcionalidades
 
@@ -139,20 +139,7 @@ src/
 
 ## Personalização do cartório
 
-Os dados exibidos no cabeçalho das minutas ficam em `src/utils/gerarMinuta.ts`, nas constantes do cartório:
-
-```ts
-const CARTORIO_NOME = '1º Ofício de Notas de Volta Redonda/RJ';
-const CARTORIO_ENDERECO = '';
-const CARTORIO_TABELIAO = '';
-```
-
-Atualize endereço e tabelião conforme necessário. Depois, execute novamente:
-
-```bash
-npm run lint
-npm run build
-```
+Os dados exibidos no cabeçalho das minutas vêm do workspace autenticado (nome, endereço, cidade/UF e tabelião), informados na criação do cartório.
 
 ## Privacidade e responsabilidade
 
@@ -160,13 +147,31 @@ O preenchimento é local no navegador e os dados não são persistidos em banco 
 
 As minutas são modelos de apoio ao atendimento e devem ser revisadas por profissional responsável antes de sua utilização oficial. O sistema não substitui conferência jurídica, documental ou cartorária.
 
-## Backend e autenticação
+## Base SaaS e backend
 
-O projeto atualmente não possui backend, autenticação ou persistência de dados. A sidebar não exibe perfil de usuário porque login e banco de dados ainda não fazem parte da aplicação.
+A autenticação, o workspace e a sincronização usam Supabase. Depois do login, o usuário **cria o cartório** ou **entra com um código de convite**. Nenhum workspace é criado automaticamente.
 
-Quando esses recursos forem implementados, a estrutura da sidebar poderá receber o usuário autenticado sem alterar a navegação dos formulários.
+Papéis: proprietário, administrador, atendente e consulta. A consulta visualiza dados; as demais funções editam rascunhos e agenda, conforme as políticas RLS. Equipe e modelos de minuta ficam só com o proprietário.
 
-O plano técnico para essa evolução está em [docs/PLANO-INTEGRACAO-BANCO.md](docs/PLANO-INTEGRACAO-BANCO.md), incluindo entidades, regras de agenda, endpoints, segurança e fases de migração.
+### Configurar Supabase
+
+1. Crie um projeto em [supabase.com](https://supabase.com).
+2. No SQL Editor, execute as migrations em `supabase/migrations/` **na ordem dos nomes dos arquivos**.
+3. Em **Project Settings > API**, copie a URL do projeto e a chave `anon` pública.
+4. Crie `.env.local` na raiz usando [.env.example](.env.example):
+
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-anon-publica
+```
+
+5. Em **Authentication > URL Configuration**, configure `http://localhost:5173` como Site URL durante o desenvolvimento e adicione o domínio de produção nas Redirect URLs.
+6. Em **Authentication > Providers > Email**, mantenha o provedor habilitado. Para exigir confirmação de e-mail, deixe **Confirm email** ativado.
+7. Reinicie o Vite com `npm run dev`.
+
+Rascunhos, fila e agenda ficam isolados por workspace. Nunca use a chave `service_role` no frontend.
+
+O plano técnico está em [docs/PLANO-INTEGRACAO-BANCO.md](docs/PLANO-INTEGRACAO-BANCO.md).
 
 ## Licença
 

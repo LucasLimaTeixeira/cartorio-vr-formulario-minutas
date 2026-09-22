@@ -1,5 +1,8 @@
 # Plano de integração com banco de dados
-
+> Segurança: credenciais não devem ser armazenadas nesta documentação nem versionadas.
+> Configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` somente no arquivo
+> `.env.local` (ignorado pelo Git). Caso uma credencial tenha sido incluída aqui,
+> revogue-a e gere uma nova no painel do Supabase.
 ## Estado atual
 
 A aplicação funciona inteiramente no navegador. Os formulários e a agenda são mantidos em estados React (`useState`) e não existe:
@@ -9,6 +12,8 @@ A aplicação funciona inteiramente no navegador. Os formulários e a agenda sã
 - persistência em banco de dados;
 - sincronização entre usuários e dispositivos;
 - histórico de alterações ou auditoria.
+
+Como primeira etapa de preparação para SaaS, os cinco formulários agora usam um adaptador de armazenamento com chave por `workspaceId`. Essa camada mantém rascunhos após o recarregamento e deverá ser substituída por chamadas autenticadas à API; `localStorage` não fornece isolamento, autorização ou sincronização suficientes para produção.
 
 Por isso, os dados atuais são demonstrativos e são perdidos ao recarregar a página.
 
@@ -24,7 +29,7 @@ React/Vite -> API autenticada -> Banco PostgreSQL
 
 Uma opção pragmática para a primeira versão é um backend Node.js/TypeScript com API REST e PostgreSQL. O frontend continuará usando os mesmos formulários, mas trocará os estados locais por chamadas a serviços tipados.
 
-Supabase também pode ser usado como infraestrutura PostgreSQL e autenticação, desde que as políticas de acesso (RLS) sejam configuradas corretamente. A decisão entre API própria e Supabase deve ser tomada antes da implementação da persistência.
+Esta implementação escolhe Supabase como infraestrutura PostgreSQL, autenticação e armazenamento inicial. As políticas de acesso (RLS) estão na migration `supabase/migrations/202609170001_saas_foundation.sql` e devem ser aplicadas antes de disponibilizar o sistema.
 
 ## Entidades principais
 
@@ -198,11 +203,11 @@ npm run build
 
 A aplicação está pronta para receber uma camada de serviços, mas ainda não deve ser conectada diretamente a credenciais de banco no frontend.
 
-## Decisão necessária
+## Decisão adotada
 
 Para iniciar a próxima etapa, precisamos escolher uma destas opções:
 
 - **API própria + PostgreSQL**: mais controle, melhor para regras cartorárias e crescimento do sistema.
 - **Supabase**: implantação inicial mais rápida, com PostgreSQL, autenticação e armazenamento, exigindo configuração cuidadosa de RLS.
 
-A recomendação para este sistema é começar com PostgreSQL e uma API autenticada, mantendo as regras de agenda no servidor.
+A aplicação usa Supabase para a primeira versão SaaS. As regras críticas da agenda ainda precisam ser migradas para funções ou Edge Functions transacionais antes do uso concorrente em produção.

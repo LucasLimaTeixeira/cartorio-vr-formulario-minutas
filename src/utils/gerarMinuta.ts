@@ -8,18 +8,18 @@ import {
   FormularioUniaoEstavel,
   FormularioPactoAntenupcial,
 } from '../types';
+import { workspaceProfile } from './workspaceStorage';
 
 // ---------------------------------------------------------------------------
 // Dados do cartório
 //
-// Preencha ENDERECO e TABELIAO com os dados reais do 1º Ofício para que
-// apareçam no cabeçalho impresso da minuta. Enquanto estiverem em branco,
-// essas linhas simplesmente não são exibidas (nada de placeholder falso
-// aparecendo no documento).
+// Os dados de cada cartório vêm do workspace autenticado. Enquanto não forem
+// configurados, apenas o nome do workspace aparece no cabeçalho.
 // ---------------------------------------------------------------------------
-const CARTORIO_NOME = '1º Ofício de Notas de Volta Redonda/RJ';
-const CARTORIO_ENDERECO = '';
-const CARTORIO_TABELIAO = '';
+const nomeCartorio = () => workspaceProfile.workspaceName;
+const enderecoCartorio = () => workspaceProfile.cartorioEndereco;
+const tabeliaoCartorio = () => workspaceProfile.cartorioTabeliao;
+const cidadeCartorio = () => workspaceProfile.cartorioCidade || '[cidade/UF]';
 
 export interface MinutaGerada {
   cabecalho: string[];
@@ -65,7 +65,7 @@ function montarMinuta(params: {
   fechamentoLinhas: string[];
   assinantes: string[];
 }): MinutaGerada {
-  const cabecalho = [CARTORIO_NOME, CARTORIO_ENDERECO, CARTORIO_TABELIAO].filter(
+  const cabecalho = [nomeCartorio(), enderecoCartorio(), tabeliaoCartorio()].filter(
     (linha): linha is string => Boolean(linha)
   );
   const corpo = params.corpoLinhas.join('\n');
@@ -293,7 +293,7 @@ export function gerarMinutaProcuracao(f: FormularioProcuracao): MinutaGerada {
   );
 
   linhas.push(
-    `SAIBAM todos quantos este instrumento particular de mandato virem que, aos ${dataExtenso}, nesta cidade de Volta Redonda, Estado do Rio de Janeiro, perante mim, Tabelião(a) deste Ofício, compareceu(ram) como OUTORGANTE(S):`
+    `SAIBAM todos quantos este instrumento particular de mandato virem que, aos ${dataExtenso}, nesta cidade de ${cidadeCartorio()}, perante mim, Tabelião(a) deste Ofício, compareceu(ram) como OUTORGANTE(S):`
   );
   linhas.push('');
   linhas.push(`${outorgantesQualif}.`);
@@ -342,7 +342,7 @@ export function gerarMinutaProcuracao(f: FormularioProcuracao): MinutaGerada {
     corpoLinhas: linhas,
     fechamentoLinhas: [
       'Assim o(s) outorgante(s) o disse(ram), do que dou fé.',
-      `Volta Redonda/RJ, ${dataExtenso}.`,
+      `${cidadeCartorio()}, ${dataExtenso}.`,
     ],
     assinantes,
   });
@@ -382,7 +382,7 @@ export function gerarMinutaApostilamento(f: FormularioApostilamento): MinutaGera
   return montarMinuta({
     titulo: 'TERMO DE SOLICITAÇÃO DE APOSTILAMENTO',
     corpoLinhas: linhas,
-    fechamentoLinhas: [`Volta Redonda/RJ, ${dataExtenso}.`],
+    fechamentoLinhas: [`${cidadeCartorio()}, ${dataExtenso}.`],
     assinantes: f.requerentes.map((r) => r.nome || 'Requerente'),
   });
 }
@@ -442,7 +442,7 @@ export function gerarMinutaCertidao(f: FormularioCertidao): MinutaGerada {
   return montarMinuta({
     titulo: 'TERMO DE SOLICITAÇÃO DE CERTIDÃO',
     corpoLinhas: linhas,
-    fechamentoLinhas: [`Volta Redonda/RJ, ${dataExtenso}.`],
+    fechamentoLinhas: [`${cidadeCartorio()}, ${dataExtenso}.`],
     assinantes: f.requerentes.map((r) => r.nome || 'Requerente'),
   });
 }
@@ -486,7 +486,7 @@ export function gerarMinutaUniaoEstavel(f: FormularioUniaoEstavel): MinutaGerada
   );
 
   linhas.push(
-    `SAIBAM todos quantos esta escritura pública declaratória de união estável virem que, aos ${dataExtenso}, nesta cidade de Volta Redonda, Estado do Rio de Janeiro, perante mim, Tabelião(a) deste Ofício, compareceram como DECLARANTES:`
+    `SAIBAM todos quantos esta escritura pública declaratória de união estável virem que, aos ${dataExtenso}, nesta cidade de ${cidadeCartorio()}, perante mim, Tabelião(a) deste Ofício, compareceram como DECLARANTES:`
   );
   linhas.push('');
   linhas.push(`${companheirosQualif}.`);
@@ -534,7 +534,7 @@ export function gerarMinutaUniaoEstavel(f: FormularioUniaoEstavel): MinutaGerada
     corpoLinhas: linhas,
     fechamentoLinhas: [
       'Assim o disseram e me pediram que lavrasse a presente escritura, que, feita, leram e acharam conforme, outorgam e assinam.',
-      `Volta Redonda/RJ, ${dataExtenso}.`,
+      `${cidadeCartorio()}, ${dataExtenso}.`,
     ],
     assinantes,
   });
@@ -553,7 +553,7 @@ export function gerarMinutaPactoAntenupcial(f: FormularioPactoAntenupcial): Minu
   );
 
   linhas.push(
-    `SAIBAM todos quantos esta escritura pública de pacto antenupcial virem que, aos ${dataExtenso}, nesta cidade de Volta Redonda, Estado do Rio de Janeiro, perante mim, Tabelião(a) deste Ofício, compareceram como NUBENTES:`
+    `SAIBAM todos quantos esta escritura pública de pacto antenupcial virem que, aos ${dataExtenso}, nesta cidade de ${cidadeCartorio()}, perante mim, Tabelião(a) deste Ofício, compareceram como NUBENTES:`
   );
   linhas.push('');
   linhas.push(`${nubentesQualif}.`);
@@ -604,7 +604,7 @@ export function gerarMinutaPactoAntenupcial(f: FormularioPactoAntenupcial): Minu
     corpoLinhas: linhas,
     fechamentoLinhas: [
       'Assim o disseram e me pediram que lavrasse a presente escritura, que, feita, leram e acharam conforme, outorgam e assinam.',
-      `Volta Redonda/RJ, ${dataExtenso}.`,
+      `${cidadeCartorio()}, ${dataExtenso}.`,
     ],
     assinantes,
   });

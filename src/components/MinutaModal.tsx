@@ -15,6 +15,8 @@ import {
   gerarMinutaPactoAntenupcial,
   MinutaGerada,
 } from '../utils/gerarMinuta';
+import { loadWorkspaceState } from '../utils/workspaceStorage';
+import type { MinutaModels } from './MinutaModelsEditor';
 
 export type TipoMinuta =
   | 'procuracao'
@@ -63,7 +65,7 @@ export function MinutaModal({
 }: MinutaModalProps) {
   const [copiado, setCopiado] = useState(false);
 
-  const minuta: MinutaGerada = useMemo(() => {
+  const minutaBase: MinutaGerada = useMemo(() => {
     if (tipo === 'procuracao') return gerarMinutaProcuracao(formulario);
     if (tipo === 'apostilamento') return gerarMinutaApostilamento(formularioApostilamento);
     if (tipo === 'certidoes') return gerarMinutaCertidao(formularioCertidao);
@@ -77,6 +79,14 @@ export function MinutaModal({
     formularioUniaoEstavel,
     formularioPactoAntenupcial,
   ]);
+
+  const minuta: MinutaGerada = useMemo(() => {
+    const modelos = loadWorkspaceState<MinutaModels>('modelos-minuta', {});
+    const modelo = modelos[tipo];
+    if (!modelo) return minutaBase;
+    const corpo = modelo.replaceAll('[CORPO_GERADO]', minutaBase.corpo);
+    return { ...minutaBase, corpo, textoCompleto: [minutaBase.cabecalho.join('\n'), minutaBase.titulo, corpo, minutaBase.fechamento, minutaBase.assinantes.join('\n')].filter(Boolean).join('\n\n') };
+  }, [minutaBase, tipo]);
 
   const paragrafosCorpo = useMemo(() => dividirParagrafos(minuta.corpo), [minuta.corpo]);
   const paragrafosFechamento = useMemo(() => dividirParagrafos(minuta.fechamento), [minuta.fechamento]);
