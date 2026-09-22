@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/preparar-notebook.ps1",
     "build": "vite build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

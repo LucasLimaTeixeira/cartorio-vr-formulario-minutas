@@ -71,6 +71,16 @@ Instale as dependências:
 npm install
 ```
 
+### Preparação rápida no Windows
+
+Depois de clonar o repositório em um novo notebook, execute um único comando. Ele instala as dependências e solicita as chaves públicas do Supabase apenas se o arquivo `.env.local` ainda não existir:
+
+```bash
+npm run setup:windows
+```
+
+As chaves ficam somente no notebook, pois `.env.local` não é enviado ao GitHub.
+
 ## Desenvolvimento
 
 Inicie o servidor local:
