@@ -136,8 +136,9 @@
 .admin-users-toolbar p { margin: 0; color: #5e7489; font-size: .8rem; font-weight: 700; }
 .admin-workspace-detail .admin-table-wrap { border: 1px solid #e3ebf2; border-radius: .8rem; }
 .admin-workspace-detail .admin-table tr:first-child td { border-top: 0; }
-.admin-row-actions { text-align: right; white-space: nowrap; }
-.admin-row-actions button + button { margin-left: .4rem; }
+.admin-row-actions { text-align: right; }
+.admin-row-actions button { margin: .15rem 0 .15rem .4rem; }
+.admin-workspace-detail .admin-table { min-width: 560px; }
 .admin-contract-form fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; margin: 0; border: 1px solid #e3ebf2; border-radius: .8rem; padding: 1rem; }
 .admin-contract-form legend { padding: 0 .3rem; color: #244b6b; font-size: .84rem; font-weight: 800; }
 .admin-contract-form label { display: grid; gap: .35rem; color: #37536c; font-size: .78rem; font-weight: 700; }
@@ -1496,3 +1497,63 @@
 .dark .home-alert { border-color: rgba(243, 211, 154, .4); background: rgba(124, 74, 0, .25); color: #f6d9a8; }
 @media (max-width: 900px) { .home-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .home-hero { flex-direction: column; align-items: flex-start; padding: 1.2rem; } .home-hero h2 { font-size: 1.3rem; } }
+
+/* Administração: campos com fundo explícito no tema claro e tema escuro completo.
+   Fica no fim do arquivo para vencer as regras genéricas ".dark input/select". */
+.super-admin-panel input:not([type="checkbox"]), .super-admin-panel select, .super-admin-panel textarea,
+.admin-modal input:not([type="checkbox"]), .admin-modal select { background-color: #fff; color: #183953; }
+.super-admin-panel .admin-search input { background: transparent; }
+.super-admin-panel .admin-search { background: #fff; }
+.super-admin-panel input[type="checkbox"], .admin-modal input[type="checkbox"] { accent-color: #1672b8; width: 1rem; height: 1rem; }
+.super-admin-panel input:focus-visible, .super-admin-panel select:focus-visible, .super-admin-panel textarea:focus-visible,
+.admin-modal input:focus-visible, .admin-modal select:focus-visible { outline: 2px solid #1672b8; outline-offset: 1px; }
+
+.dark .super-admin-panel { color: var(--ink); }
+.dark .super-admin-header, .dark .admin-section, .dark .admin-kpi, .dark .admin-modal { border-color: var(--line); background: var(--surface); box-shadow: 0 .75rem 1.75rem rgba(0, 0, 0, .25); }
+.dark .super-admin-title h2, .dark .admin-detail-header h3, .dark .admin-kpi strong, .dark .admin-list-top strong,
+.dark .admin-table strong, .dark .admin-info-card dd, .dark .admin-modal h2, .dark .admin-modal-user { color: var(--ink); }
+.dark .super-admin-title small, .dark .admin-detail-header p, .dark .admin-kpi small, .dark .admin-workspace-list small,
+.dark .admin-table small, .dark .admin-info-card dt, .dark .admin-usage-label, .dark .admin-users-toolbar p,
+.dark .admin-modal-hint, .dark .admin-modal-user small, .dark .admin-empty, .dark .admin-notes, .dark .admin-table td { color: var(--muted); }
+.dark .super-admin-title p, .dark .admin-info-card h4, .dark .admin-contract-form legend, .dark .admin-contract-form label,
+.dark .admin-feature-list legend, .dark .admin-modal-form label, .dark .admin-feature-list label { color: #d6e6ea; }
+.dark .super-admin-title > span, .dark .admin-info-card h4 svg { background: var(--accent-soft); color: var(--accent); }
+.dark .admin-info-card h4 svg { background: none; }
+.dark .admin-kpi.is-warning { border-color: rgba(243, 211, 154, .45); background: rgba(124, 74, 0, .22); }
+.dark .admin-kpi.is-warning strong { color: #f6d9a8; }
+.dark .admin-list-filters, .dark .admin-tabs, .dark .admin-modal > header { border-color: var(--line); }
+.dark .admin-workspace-list li button:hover { background: var(--surface-soft); }
+.dark .admin-workspace-list li button.is-selected { border-color: rgba(91, 211, 207, .45); background: var(--accent-soft); }
+.dark .admin-tabs button { color: var(--muted); }
+.dark .admin-tabs button.is-active { border-bottom-color: var(--accent); color: var(--accent); }
+.dark .admin-info-card, .dark .admin-contract-form fieldset, .dark .admin-feature-list,
+.dark .admin-workspace-detail .admin-table-wrap { border-color: var(--line); }
+.dark .admin-table th { background: var(--surface-soft); color: var(--muted); }
+.dark .admin-table td { border-color: var(--line); }
+.dark .admin-usage { background: var(--surface-soft); }
+.dark .admin-due.is-warning { color: #f6c26b; }
+.dark .admin-due.is-danger { color: #ff9b9b; }
+.dark .admin-alert.is-warning { background: rgba(124, 74, 0, .25); color: #f6d9a8; }
+.dark .admin-alert.is-danger { background: rgba(160, 40, 40, .25); color: #ffb4b4; }
+.dark .admin-feature-chips .is-on { background: rgba(39, 122, 80, .25); color: #9fe3bf; }
+.dark .admin-feature-chips .is-off { background: var(--surface-soft); color: #7f949b; }
+.dark .status-pill { background: rgba(39, 122, 80, .25); color: #9fe3bf; }
+.dark .status-pill.is-trialing, .dark .role-pill { background: rgba(80, 130, 220, .2); color: #b7cdf5; }
+.dark .status-pill.is-past_due { background: rgba(154, 91, 0, .28); color: #f6c26b; }
+.dark .status-pill.is-cancelled { background: var(--surface-soft); color: #a3b3b9; }
+.dark .status-pill.is-suspended { background: rgba(176, 58, 58, .25); color: #ffb4b4; }
+.dark .admin-action-button { border-color: var(--accent); background: #0f6d78; color: #fff; }
+.dark .admin-action-button.is-secondary { border-color: var(--line); background: var(--surface-soft); color: #cfe7ea; }
+.dark .admin-action-button.is-danger { border-color: rgba(255, 155, 155, .4); background: transparent; color: #ffb4b4; }
+.dark .admin-modal-actions button { background: #0f6d78; }
+.dark .admin-modal-actions .admin-cancel-button { background: var(--surface-soft); color: #cfe7ea; }
+.dark .admin-modal > header button { color: var(--muted); }
+.dark .super-admin-panel input:not([type="checkbox"]), .dark .super-admin-panel select, .dark .super-admin-panel textarea,
+.dark .admin-modal input:not([type="checkbox"]), .dark .admin-modal select,
+.dark .super-admin-panel .admin-search { border-color: var(--line); background-color: var(--surface-soft); color: var(--ink); }
+.dark .super-admin-panel .admin-search input { background: transparent; }
+.dark .super-admin-panel .admin-search svg { color: var(--muted); }
+.dark .super-admin-panel input::placeholder, .dark .super-admin-panel textarea::placeholder { color: #7f949b; }
+.dark .super-admin-panel input[type="checkbox"], .dark .admin-modal input[type="checkbox"] { accent-color: var(--accent); }
+.dark .super-admin-panel input:focus-visible, .dark .super-admin-panel select:focus-visible, .dark .super-admin-panel textarea:focus-visible,
+.dark .admin-modal input:focus-visible, .dark .admin-modal select:focus-visible { outline-color: var(--accent); }
