@@ -387,10 +387,10 @@ function AuthScreen({ error: initialError }: { error: string }) {
       <section className="auth-card">
         <div className="auth-brand"><FileText /><span>Cartório OS</span></div>
         <span className="auth-kicker">Workspace seguro</span>
-        <h1>{mode === 'login' ? 'Entre no seu cartório' : 'Crie sua conta'}</h1>
+        <h1>{mode === 'login' ? 'Acessar' : 'Crie sua conta'}</h1>
         <p className="auth-description">
           {mode === 'login'
-            ? 'Formulários, agenda e minutas do seu workspace.'
+            ? 'Formulários, agenda e minutas do seu Cartório'
             : 'Depois do login você cria um cartório ou entra com o código de convite da equipe.'}
         </p>
         <form onSubmit={submit} className="auth-form">
