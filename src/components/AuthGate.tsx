@@ -7,7 +7,10 @@ import {
   hydrateWorkspaceDrafts,
   WorkspacePlan,
   WorkspaceRole,
+  WorkspaceFeatures,
+  WorkspaceStatus,
   defaultWorkspaceFeatures,
+  updateWorkspaceProfile,
   workspaceProfile,
 } from '../utils/workspaceStorage';
 import App from '../App';
@@ -35,7 +38,19 @@ function unwrapWorkspace(value: MembershipRow['workspaces']): WorkspaceRow | nul
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-function applyWorkspaceProfile(session: Session, workspace: WorkspaceRow, role: WorkspaceRole, features = defaultWorkspaceFeatures, isSystemAdmin = false) {
+type SubscriptionRow = { plan: WorkspacePlan; status: WorkspaceStatus; features: Partial<WorkspaceFeatures> | null; current_period_end: string | null };
+const noFeatures: WorkspaceFeatures = { agenda: false, procuracao: false, apostilamento: false, certidoes: false, uniao_estavel: false, pacto_antenupcial: false, outros: false };
+
+function subscriptionProfile(subscription: SubscriptionRow) {
+  return {
+    plan: subscription.plan,
+    status: subscription.status,
+    features: { ...defaultWorkspaceFeatures, ...(subscription.features ?? {}) },
+    periodEnd: subscription.current_period_end,
+  };
+}
+
+function applyWorkspaceProfile(session: Session, workspace: WorkspaceRow, role: WorkspaceRole, subscription: SubscriptionRow | null, isSystemAdmin: boolean) {
   configureWorkspaceProfile({
     workspaceId: workspace.id,
     workspaceName: workspace.name,
@@ -46,9 +61,42 @@ function applyWorkspaceProfile(session: Session, workspace: WorkspaceRow, role: 
     userEmail: session.user.email || '',
     plan: workspace.plan,
     role,
-    features,
+    features: defaultWorkspaceFeatures,
     isSystemAdmin,
+    status: 'trialing',
+    periodEnd: null,
+    ...(subscription ? subscriptionProfile(subscription) : {}),
   });
+}
+
+// Mantém plano, recursos, perfil e dados do cartório sincronizados sem recarregar a página.
+function useWorkspaceRealtime(userId: string, workspaceId: string | null, onMembershipLost: () => void) {
+  useEffect(() => {
+    if (!supabase || !workspaceId) return;
+    const client = supabase;
+    const refreshSubscription = async () => {
+      const { data } = await client.from('workspace_subscriptions').select('plan, status, features, current_period_end').eq('workspace_id', workspaceId).maybeSingle();
+      if (data) updateWorkspaceProfile(subscriptionProfile(data as SubscriptionRow));
+    };
+    const checkMembership = async () => {
+      const { data } = await client.from('workspace_members').select('role').eq('workspace_id', workspaceId).eq('user_id', userId).maybeSingle();
+      if (!data) onMembershipLost(); else updateWorkspaceProfile({ role: data.role as WorkspaceRole });
+    };
+    const channel = client.channel(`workspace-${workspaceId}-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_subscriptions', filter: `workspace_id=eq.${workspaceId}` }, (payload) => {
+        if (payload.new && 'features' in payload.new) updateWorkspaceProfile(subscriptionProfile(payload.new as SubscriptionRow));
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workspaces', filter: `id=eq.${workspaceId}` }, (payload) => {
+        const row = payload.new as WorkspaceRow;
+        updateWorkspaceProfile({ workspaceName: row.name, cartorioEndereco: row.endereco || '', cartorioCidade: row.cidade || '', cartorioTabeliao: row.tabeliao || '' });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members', filter: `user_id=eq.${userId}` }, () => { void checkMembership(); })
+      .subscribe();
+    // Rede de segurança caso o Realtime caia: revalida ao voltar para a aba.
+    const onVisible = () => { if (document.visibilityState === 'visible') { void refreshSubscription(); void checkMembership(); } };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { document.removeEventListener('visibilitychange', onVisible); void client.removeChannel(channel); };
+  }, [userId, workspaceId, onMembershipLost]);
 }
 
 export function AuthGate() {
@@ -91,6 +139,7 @@ function AuthenticatedApp({ session }: { session: Session }) {
   const [needsWorkspace, setNeedsWorkspace] = useState(false);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
 
   const reloadWorkspace = useCallback(() => {
     setReady(false);
@@ -112,17 +161,6 @@ function AuthenticatedApp({ session }: { session: Session }) {
         setReady(true);
         return;
       }
-      if (isSuperAdmin) {
-        configureWorkspaceProfile({
-          ...workspaceProfile,
-          userName: session.user.user_metadata?.full_name || session.user.email || 'Administrador',
-          userEmail: session.user.email || '',
-          isSystemAdmin: true,
-        });
-        setReady(true);
-        return;
-      }
-
       const membershipQuery = () => supabase
         .from('workspace_members')
         .select('workspace_id, role, workspaces(id, name, plan, endereco, cidade, tabeliao)')
@@ -150,6 +188,21 @@ function AuthenticatedApp({ session }: { session: Session }) {
         return;
       }
 
+      if (!membership && isSuperAdmin) {
+        // Super Admin sem cartório próprio: acessa apenas a tela inicial e a administração.
+        configureWorkspaceProfile({
+          ...workspaceProfile,
+          workspaceName: 'Administração geral',
+          userName: session.user.user_metadata?.full_name || session.user.email || 'Administrador',
+          userEmail: session.user.email || '',
+          features: noFeatures,
+          isSystemAdmin: true,
+        });
+        setActiveWorkspaceId(null);
+        setReady(true);
+        return;
+      }
+
       if (!membership) {
         setNeedsWorkspace(true);
         setReady(true);
@@ -163,12 +216,11 @@ function AuthenticatedApp({ session }: { session: Session }) {
         return;
       }
 
-      const [{ data: subscription, error: subscriptionError }, { data: isSystemAdmin }] = await Promise.all([
-        supabase.from('workspace_subscriptions').select('features').eq('workspace_id', workspace.id).maybeSingle(),
-        supabase.rpc('is_system_admin'),
-      ]);
+      const { data: subscription, error: subscriptionError } = await supabase.from('workspace_subscriptions')
+        .select('plan, status, features, current_period_end').eq('workspace_id', workspace.id).maybeSingle();
       if (subscriptionError) { setError(subscriptionError.message); setReady(true); return; }
-      applyWorkspaceProfile(session, workspace, (membership as MembershipRow).role, { ...defaultWorkspaceFeatures, ...(subscription?.features ?? {}) }, isSystemAdmin === true);
+      applyWorkspaceProfile(session, workspace, (membership as MembershipRow).role, subscription as SubscriptionRow | null, isSuperAdmin === true);
+      setActiveWorkspaceId(workspace.id);
       await hydrateWorkspaceDrafts();
       if (mounted) setReady(true);
     }
@@ -184,6 +236,8 @@ function AuthenticatedApp({ session }: { session: Session }) {
       mounted = false;
     };
   }, [session, reloadKey]);
+
+  useWorkspaceRealtime(session.user.id, ready ? activeWorkspaceId : null, reloadWorkspace);
 
   if (!ready) return <LoadingScreen />;
   if (error) return <ErrorScreen message={error} />;

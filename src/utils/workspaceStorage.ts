@@ -1,10 +1,12 @@
 const STORAGE_PREFIX = 'cartorio-saas:';
+import { useSyncExternalStore } from 'react';
 import { supabase } from '../lib/supabase';
 
 export type WorkspacePlan = 'trial' | 'professional';
 export type WorkspaceRole = 'owner' | 'admin' | 'attendant' | 'viewer';
 export type WorkspaceFeature = 'agenda' | 'procuracao' | 'apostilamento' | 'certidoes' | 'uniao_estavel' | 'pacto_antenupcial' | 'outros';
 export type WorkspaceFeatures = Record<WorkspaceFeature, boolean>;
+export type WorkspaceStatus = 'trialing' | 'active' | 'past_due' | 'cancelled' | 'suspended';
 export const defaultWorkspaceFeatures: WorkspaceFeatures = { agenda: true, procuracao: true, apostilamento: true, certidoes: true, uniao_estavel: true, pacto_antenupcial: true, outros: true };
 
 export interface WorkspaceProfile {
@@ -19,6 +21,8 @@ export interface WorkspaceProfile {
   role: WorkspaceRole;
   features: WorkspaceFeatures;
   isSystemAdmin: boolean;
+  status: WorkspaceStatus;
+  periodEnd: string | null;
 }
 
 export let workspaceProfile: WorkspaceProfile = {
@@ -33,10 +37,33 @@ export let workspaceProfile: WorkspaceProfile = {
   role: 'owner',
   features: defaultWorkspaceFeatures,
   isSystemAdmin: false,
+  status: 'trialing',
+  periodEnd: null,
 };
+
+const profileListeners = new Set<() => void>();
 
 export function configureWorkspaceProfile(profile: WorkspaceProfile) {
   workspaceProfile = profile;
+  profileListeners.forEach((listener) => listener());
+}
+
+export function updateWorkspaceProfile(changes: Partial<WorkspaceProfile>) {
+  configureWorkspaceProfile({ ...workspaceProfile, ...changes });
+}
+
+function subscribeWorkspaceProfile(listener: () => void) {
+  profileListeners.add(listener);
+  return () => { profileListeners.delete(listener); };
+}
+
+// Componentes que usam este hook re-renderizam quando contrato, recursos ou perfil mudam.
+export function useWorkspaceProfile() {
+  return useSyncExternalStore(subscribeWorkspaceProfile, () => workspaceProfile);
+}
+
+export function isWorkspaceWritable() {
+  return workspaceProfile.status === 'trialing' || workspaceProfile.status === 'active';
 }
 
 export function isWorkspaceOwner() {

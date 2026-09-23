@@ -56,7 +56,19 @@ export function SuperAdminClients() {
     setWorkspaces(list);
     setSelectedId((current) => current && list.some((w) => w.id === current) ? current : list[0]?.id ?? null);
   }, []);
+  const [version, setVersion] = useState(0);
   useEffect(() => { void load(); }, [load]);
+  // Recarrega a tela quando cartórios, contratos ou equipes mudam em qualquer sessão.
+  useEffect(() => {
+    if (!supabase || !allowed) return;
+    const client = supabase;
+    let timer: number | undefined;
+    const refresh = () => { window.clearTimeout(timer); timer = window.setTimeout(() => { void load(); setVersion((v) => v + 1); }, 300); };
+    const channel = client.channel(`super-admin-${crypto.randomUUID()}`);
+    ['workspaces', 'workspace_subscriptions', 'workspace_members'].forEach((table) => channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh));
+    channel.subscribe();
+    return () => { window.clearTimeout(timer); void client.removeChannel(channel); };
+  }, [allowed, load]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -98,7 +110,7 @@ export function SuperAdminClients() {
           {!filtered.length && <li className="admin-empty">Nenhum cartório encontrado.</li>}
         </ul>
       </aside>
-      {selected ? <WorkspaceDetail key={selected.id} workspace={selected} tab={tab} onTab={setTab} onChanged={load} /> : <section className="admin-section admin-empty">Selecione um cartório.</section>}
+      {selected ? <WorkspaceDetail key={selected.id} workspace={selected} version={version} tab={tab} onTab={setTab} onChanged={load} /> : <section className="admin-section admin-empty">Selecione um cartório.</section>}
     </div>
   </section>;
 }
@@ -106,7 +118,7 @@ export function SuperAdminClients() {
 function Kpi({ label, value, tone, hint }: { label: string; value: number; tone?: string; hint?: string }) { return <div className={`admin-kpi${tone ? ` is-${tone}` : ''}`} title={hint}><small>{label}</small><strong>{value}</strong></div>; }
 function StatusPill({ status }: { status: Status }) { return <span className={`status-pill is-${status}`}>{statusLabels[status] ?? status}</span>; }
 
-function WorkspaceDetail({ workspace, tab, onTab, onChanged }: { workspace: Workspace; tab: Tab; onTab: (tab: Tab) => void; onChanged: () => Promise<void> }) {
+function WorkspaceDetail({ workspace, version, tab, onTab, onChanged }: { workspace: Workspace; version: number; tab: Tab; onTab: (tab: Tab) => void; onChanged: () => Promise<void> }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
@@ -116,7 +128,7 @@ function WorkspaceDetail({ workspace, tab, onTab, onChanged }: { workspace: Work
     const { data, error: loadError } = await supabase.rpc('list_admin_workspace_users', { target_workspace: workspace.id });
     if (loadError) setError(loadError.message); else setMembers((data ?? []) as Member[]);
   }, [workspace.id]);
-  useEffect(() => { void loadMembers(); }, [loadMembers]);
+  useEffect(() => { void loadMembers(); }, [loadMembers, version]);
   const refresh = async () => { await Promise.all([loadMembers(), onChanged()]); };
   const changeRole = async (member: Member, role: Role) => {
     if (!supabase) return; setError('');

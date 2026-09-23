@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2, LogOut } from 'lucide-react';
+import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2, LogOut, LayoutDashboard } from 'lucide-react';
 import {
   Pessoa,
   DadosBancarios,
@@ -20,11 +20,13 @@ import {
 } from './types';
 import { MinutaModal, TipoMinuta } from './components/MinutaModal';
 import { SuperAdminClients } from './components/SuperAdminClients';
-import { hasWorkspaceFeature, isSystemAdmin, loadWorkspaceState, saveWorkspaceState, workspaceProfile } from './utils/workspaceStorage';
+import { WorkspaceFeature, loadWorkspaceState, saveWorkspaceState, useWorkspaceProfile } from './utils/workspaceStorage';
+import { TelaInicial } from './components/TelaInicial';
 import { supabase } from './lib/supabase';
 import { AgendamentoAgenda, CadastroAgenda, assinarAgenda, atualizarStatusAgendamento, carregarAgenda, removerItemAgenda, reservarAgendamento, salvarCadastro, atosAgendaIniciais } from './utils/agendaService';
 
 const itensMenu = [
+  { id: 'inicio', label: 'Tela inicial', icon: LayoutDashboard },
   { id: 'agenda', label: 'Agenda', icon: CalendarDays },
   { id: 'procuracao', label: 'Procuração', icon: FileText },
   { id: 'apostilamento', label: 'Apostilamento', icon: Shield },
@@ -447,7 +449,13 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
 }
 
 function App() {
-  const [abaAtiva, setAbaAtiva] = useState('procuracao');
+  const [abaAtiva, setAbaAtiva] = useState('inicio');
+  const profile = useWorkspaceProfile();
+  // Recursos desabilitados somem do menu na hora e a aba aberta volta para a tela inicial.
+  const podeAcessar = (aba: string) => aba === 'inicio' || (aba === 'super-admin' ? profile.isSystemAdmin : Boolean(profile.features[aba as WorkspaceFeature]));
+  const abaVisivel = podeAcessar(abaAtiva) ? abaAtiva : 'inicio';
+  useEffect(() => { if (abaVisivel !== abaAtiva) setAbaAtiva(abaVisivel); }, [abaVisivel, abaAtiva]);
+  const abrirAba = (aba: string) => { setAbaAtiva(aba); setMenuAberto(false); window.scrollTo({ top: 0 }); };
   const [minutaAberta, setMinutaAberta] = useState<TipoMinuta | null>(null);
   const [temaEscuro, setTemaEscuro] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
@@ -1874,24 +1882,21 @@ const renderizarCamposTestemunha = (
             <strong>Formulários</strong>
           </div>
         </div>
-        <div className="dashboard-workspace" title={workspaceProfile.userEmail}>
+        <div className="dashboard-workspace" title={profile.userEmail}>
           <span className="dashboard-workspace-label">Workspace ativo</span>
-          <strong>{workspaceProfile.workspaceName}</strong>
-          <span>{workspaceProfile.userName} · {workspaceProfile.plan === 'trial' ? 'Avaliação' : 'Profissional'}</span>
+          <strong>{profile.workspaceName}</strong>
+          <span>{profile.userName} · {profile.plan === 'trial' ? 'Avaliação' : 'Profissional'}</span>
           <button type="button" className="dashboard-signout" onClick={() => { void supabase?.auth.signOut(); }}><LogOut /> Sair</button>
         </div>
         <p className="dashboard-menu-title">Navegação</p>
         <nav className="dashboard-nav" aria-label="Formulários">
-          {itensMenu.filter(({ id }) => id === 'super-admin' ? isSystemAdmin() : hasWorkspaceFeature(id as import('./utils/workspaceStorage').WorkspaceFeature)).map(({ id, label, icon: Icon }) => (
+          {itensMenu.filter(({ id }) => podeAcessar(id)).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
-              onClick={() => {
-                setAbaAtiva(id);
-                setMenuAberto(false);
-              }}
-              className={`dashboard-nav-item ${abaAtiva === id ? 'is-active' : ''}`}
-              aria-current={abaAtiva === id ? 'page' : undefined}
+              onClick={() => abrirAba(id)}
+              className={`dashboard-nav-item ${abaVisivel === id ? 'is-active' : ''}`}
+              aria-current={abaVisivel === id ? 'page' : undefined}
             >
               <Icon className="w-5 h-5" />
               <span>{label}</span>
@@ -1914,30 +1919,32 @@ const renderizarCamposTestemunha = (
             {temaEscuro ? 'Tema claro' : 'Tema escuro'}
           </button>
         </div>
-        <header className="app-header text-center mb-8 print:mb-4">
+        {!['inicio', 'super-admin'].includes(abaVisivel) && <header className="app-header text-center mb-8 print:mb-4">
         <h1 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3 print:text-2xl print:mb-1">
   <FileText className="w-10 h-10 text-blue-600 print:hidden" />
   Cartório OS · Plataforma de Formulários
 </h1>
 <p className="text-gray-600 text-lg print:text-sm print:mb-2">Sistema de Geração de Formulários</p>
-        </header>
+        </header>}
 
-        <aside className="app-notice mb-8 px-5 py-4 print:hidden" role="note">
+        {!['inicio', 'super-admin', 'agenda'].includes(abaVisivel) && <aside className="app-notice mb-8 px-5 py-4 print:hidden" role="note">
           <p>
-            O preenchimento é local no navegador e os dados não são persistidos em banco de dados pela aplicação. Ainda assim, evite compartilhar telas, textos copiados ou arquivos impressos que contenham dados pessoais.
+            Os rascunhos ficam salvos na conta do cartório e só os usuários dele têm acesso. Evite compartilhar telas, textos copiados ou arquivos impressos que contenham dados pessoais.
           </p>
           <p>
             As minutas são modelos de apoio ao atendimento e devem ser revisadas por profissional responsável antes de sua utilização oficial. O sistema não substitui conferência jurídica, documental ou cartorária.
           </p>
-        </aside>
+        </aside>}
 
         {/* Área do formulário ativo */}
         <div className="app-panel bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:mb-4">
           <div className="p-6 print:p-2">
-            {abaAtiva === 'agenda' && <AgendaAtendimentos cadastrosAguardando={cadastrosAguardando} onCadastroAgendado={removerCadastroAgendado} onAgendamentoRemarcado={adicionarCadastroAguardando} />}
-            {abaAtiva === 'super-admin' && isSystemAdmin() && <SuperAdminClients />}
+            {abaVisivel === 'agenda' && <AgendaAtendimentos cadastrosAguardando={cadastrosAguardando} onCadastroAgendado={removerCadastroAgendado} onAgendamentoRemarcado={adicionarCadastroAguardando} />}
+            {abaVisivel === 'inicio' && <TelaInicial onNavegar={abrirAba} cadastrosAguardando={cadastrosAguardando.length} />}
+            {abaVisivel === 'super-admin' && <SuperAdminClients />}
+            {abaVisivel === 'outros' && <p className="home-empty">Outros formulários estarão disponíveis em breve.</p>}
 
-            {abaAtiva === 'procuracao' && (
+            {abaVisivel === 'procuracao' && (
               <div className="space-y-8 print:space-y-4">
                 {/* Seção Outorgantes */}
                 <section>
@@ -2476,7 +2483,7 @@ const renderizarCamposTestemunha = (
               </div>
             )}
 
-            {abaAtiva === 'apostilamento' && (
+            {abaVisivel === 'apostilamento' && (
               <div className="space-y-8 print:space-y-4">
                 {/* Seção Dados de Entrega */}
                 <section>
@@ -2627,7 +2634,7 @@ const renderizarCamposTestemunha = (
                 </div>
               </div>
             )}
-{abaAtiva === 'certidoes' && (
+{abaVisivel === 'certidoes' && (
   <div className="space-y-8 print:space-y-4">
     {/* Seção Dados de Entrega */}
     <section>
@@ -2843,7 +2850,7 @@ const renderizarCamposTestemunha = (
   </div>
 )}
 
-{abaAtiva === 'uniao_estavel' && (
+{abaVisivel === 'uniao_estavel' && (
   <div className="space-y-8 print:space-y-4">
     {/* Seção Companheiros */}
     <section>
@@ -2988,7 +2995,7 @@ const renderizarCamposTestemunha = (
   </div>
 )}
 
-{abaAtiva === 'pacto_antenupcial' && (
+{abaVisivel === 'pacto_antenupcial' && (
   <div className="space-y-8 print:space-y-4">
     {/* Seção Nubentes */}
     <section>
