@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "setup:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/preparar-notebook.ps1",
+    "backup:banco": "powershell -ExecutionPolicy Bypass -File ./scripts/backup-banco.ps1",
     "build": "vite build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

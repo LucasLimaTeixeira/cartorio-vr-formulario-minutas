@@ -25,3 +25,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Backups do banco (contêm dados pessoais)
+*.dump
+backups/
