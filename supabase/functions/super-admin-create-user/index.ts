@@ -23,6 +23,12 @@ Deno.serve(async (request) => {
     }
 
     const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const [{ data: subscription, error: subscriptionError }, { count, error: memberCountError }] = await Promise.all([
+      adminClient.from('workspace_subscriptions').select('max_users').eq('workspace_id', workspaceId).maybeSingle(),
+      adminClient.from('workspace_members').select('*', { count: 'exact', head: true }).eq('workspace_id', workspaceId),
+    ]);
+    if (subscriptionError || memberCountError || !subscription) return Response.json({ error: 'Não foi possível validar o limite do cartório.' }, { status: 400, headers: corsHeaders });
+    if ((count ?? 0) >= subscription.max_users) return Response.json({ error: `Este cartório atingiu o limite de ${subscription.max_users} usuários.` }, { status: 400, headers: corsHeaders });
     const { data: invitation, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email.trim().toLowerCase(), { data: { full_name: nome.trim() } });
     if (inviteError || !invitation.user) return Response.json({ error: inviteError?.message ?? 'Não foi possível enviar o convite.' }, { status: 400, headers: corsHeaders });
 

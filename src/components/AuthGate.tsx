@@ -7,6 +7,8 @@ import {
   hydrateWorkspaceDrafts,
   WorkspacePlan,
   WorkspaceRole,
+  defaultWorkspaceFeatures,
+  workspaceProfile,
 } from '../utils/workspaceStorage';
 import App from '../App';
 
@@ -33,7 +35,7 @@ function unwrapWorkspace(value: MembershipRow['workspaces']): WorkspaceRow | nul
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-function applyWorkspaceProfile(session: Session, workspace: WorkspaceRow, role: WorkspaceRole) {
+function applyWorkspaceProfile(session: Session, workspace: WorkspaceRow, role: WorkspaceRole, features = defaultWorkspaceFeatures, isSystemAdmin = false) {
   configureWorkspaceProfile({
     workspaceId: workspace.id,
     workspaceName: workspace.name,
@@ -44,6 +46,8 @@ function applyWorkspaceProfile(session: Session, workspace: WorkspaceRow, role: 
     userEmail: session.user.email || '',
     plan: workspace.plan,
     role,
+    features,
+    isSystemAdmin,
   });
 }
 
@@ -109,6 +113,12 @@ function AuthenticatedApp({ session }: { session: Session }) {
         return;
       }
       if (isSuperAdmin) {
+        configureWorkspaceProfile({
+          ...workspaceProfile,
+          userName: session.user.user_metadata?.full_name || session.user.email || 'Administrador',
+          userEmail: session.user.email || '',
+          isSystemAdmin: true,
+        });
         setReady(true);
         return;
       }
@@ -153,7 +163,12 @@ function AuthenticatedApp({ session }: { session: Session }) {
         return;
       }
 
-      applyWorkspaceProfile(session, workspace, (membership as MembershipRow).role);
+      const [{ data: subscription, error: subscriptionError }, { data: isSystemAdmin }] = await Promise.all([
+        supabase.from('workspace_subscriptions').select('features').eq('workspace_id', workspace.id).maybeSingle(),
+        supabase.rpc('is_system_admin'),
+      ]);
+      if (subscriptionError) { setError(subscriptionError.message); setReady(true); return; }
+      applyWorkspaceProfile(session, workspace, (membership as MembershipRow).role, { ...defaultWorkspaceFeatures, ...(subscription?.features ?? {}) }, isSystemAdmin === true);
       await hydrateWorkspaceDrafts();
       if (mounted) setReady(true);
     }

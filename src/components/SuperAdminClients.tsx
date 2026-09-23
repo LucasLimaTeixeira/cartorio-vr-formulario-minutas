@@ -1,8 +1,12 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Building2, KeyRound, Plus, ShieldCheck, UsersRound, X } from 'lucide-react';
+import { Building2, KeyRound, Plus, Settings2, ShieldCheck, UsersRound, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-type Workspace = { id: string; nome: string; cidade: string; proprietario: string; email: string; plano: string; status: string };
+type FeatureKey = 'agenda' | 'procuracao' | 'apostilamento' | 'certidoes' | 'uniao_estavel' | 'pacto_antenupcial' | 'outros';
+type Features = Record<FeatureKey, boolean>;
+const defaultFeatures: Features = { agenda: true, procuracao: true, apostilamento: true, certidoes: true, uniao_estavel: true, pacto_antenupcial: true, outros: true };
+const featureLabels: Record<FeatureKey, string> = { agenda: 'Agenda', procuracao: 'Procuração', apostilamento: 'Apostilamento', certidoes: 'Certidões', uniao_estavel: 'União estável', pacto_antenupcial: 'Pacto antenupcial', outros: 'Outros formulários' };
+type Workspace = { id: string; nome: string; cidade: string; proprietario: string; email: string; plano: string; status: string; max_usuarios: number; recursos: Features | null };
 type Role = 'admin' | 'attendant' | 'viewer';
 type AdminUser = { id: string; nome: string; email: string; cargo: string; cartorio: string; papel: string };
 const roles: Record<Role, string> = { admin: 'Admin do cartório', attendant: 'Operador', viewer: 'Consulta' };
@@ -12,6 +16,7 @@ export function SuperAdminClients() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selected, setSelected] = useState<Workspace | null>(null);
+  const [entitlementTarget, setEntitlementTarget] = useState<Workspace | null>(null);
   const [passwordTarget, setPasswordTarget] = useState<AdminUser | null>(null);
   const [message, setMessage] = useState('');
   const load = async () => {
@@ -26,11 +31,21 @@ export function SuperAdminClients() {
   return <section className="super-admin-panel">
     <header className="super-admin-header"><div className="super-admin-title"><span><ShieldCheck /></span><div><p>Área restrita</p><h2>Administração geral</h2><small>Gerencie cartórios, usuários e acessos.</small></div></div><div className="super-admin-summary"><span><Building2 /> {workspaces.length} cartório{workspaces.length === 1 ? '' : 's'}</span><span><UsersRound /> {users.length} usuário{users.length === 1 ? '' : 's'}</span></div></header>
     {message && <p className="auth-error">{message}</p>}
-    <AdminSection icon={<Building2 />} title="Cartórios" subtitle="Empresas cadastradas e responsáveis."><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Cartório</th><th>Localização</th><th>Proprietário</th><th>Status</th><th /></tr></thead><tbody>{workspaces.map((workspace) => <tr key={workspace.id}><td><strong>{workspace.nome}</strong><small>{workspace.plano}</small></td><td>{workspace.cidade || 'Não informado'}</td><td><strong>{workspace.proprietario}</strong><small>{workspace.email}</small></td><td><span className="status-pill">{workspace.status}</span></td><td><button className="admin-action-button" type="button" onClick={() => setSelected(workspace)}><Plus /> Adicionar usuário</button></td></tr>)}</tbody></table></div></AdminSection>
+    <AdminSection icon={<Building2 />} title="Cartórios" subtitle="Empresas cadastradas, planos e recursos liberados."><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Cartório</th><th>Localização</th><th>Proprietário</th><th>Status</th><th /></tr></thead><tbody>{workspaces.map((workspace) => <tr key={workspace.id}><td><strong>{workspace.nome}</strong><small>{workspace.plano} · até {workspace.max_usuarios || 5} usuários</small></td><td>{workspace.cidade || 'Não informado'}</td><td><strong>{workspace.proprietario}</strong><small>{workspace.email}</small></td><td><span className="status-pill">{workspace.status}</span></td><td><button className="admin-action-button is-secondary" type="button" onClick={() => setEntitlementTarget(workspace)}><Settings2 /> Plano e recursos</button> <button className="admin-action-button" type="button" onClick={() => setSelected(workspace)}><Plus /> Usuário</button></td></tr>)}</tbody></table></div></AdminSection>
     <AdminSection icon={<UsersRound />} title="Usuários" subtitle="Redefina credenciais sem visualizar senhas."><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Usuário</th><th>Cartório</th><th>Perfil</th><th /></tr></thead><tbody>{users.map((user) => <tr key={user.id}><td><strong>{user.nome}</strong><small>{user.email}{user.cargo ? ` · ${user.cargo}` : ''}</small></td><td>{user.cartorio}</td><td><span className="role-pill">{user.papel}</span></td><td><button className="admin-action-button is-secondary" type="button" onClick={() => setPasswordTarget(user)}><KeyRound /> Redefinir senha</button></td></tr>)}</tbody></table></div></AdminSection>
     {selected && <UserModal workspace={selected} onClose={() => setSelected(null)} onSaved={() => { setSelected(null); void load(); }} />}
+    {entitlementTarget && <EntitlementsModal workspace={entitlementTarget} onClose={() => setEntitlementTarget(null)} onSaved={() => { setEntitlementTarget(null); void load(); }} />}
     {passwordTarget && <PasswordModal user={passwordTarget} onClose={() => setPasswordTarget(null)} />}
   </section>;
+}
+
+function EntitlementsModal({ workspace, onClose, onSaved }: { workspace: Workspace; onClose: () => void; onSaved: () => void }) {
+  const [plan, setPlan] = useState(workspace.plano === 'professional' ? 'professional' : 'trial');
+  const [maxUsers, setMaxUsers] = useState(workspace.max_usuarios || 5);
+  const [features, setFeatures] = useState<Features>({ ...defaultFeatures, ...(workspace.recursos ?? {}) });
+  const [error, setError] = useState(''); const [saving, setSaving] = useState(false);
+  const submit = async (event: FormEvent) => { event.preventDefault(); if (!supabase) return; setSaving(true); setError(''); const { error: saveError } = await supabase.rpc('update_workspace_entitlements', { target_workspace: workspace.id, target_plan: plan, target_max_users: maxUsers, target_features: features }); setSaving(false); if (saveError) setError(saveError.message); else onSaved(); };
+  return <Modal title="Plano e recursos" onClose={onClose}><form className="admin-modal-form" onSubmit={submit}><p className="admin-modal-user">{workspace.nome}<small>Marque exatamente o que este cartório poderá usar.</small></p><label>Plano<select value={plan} onChange={(e) => setPlan(e.target.value)}><option value="trial">Avaliação</option><option value="professional">Profissional</option></select></label><label>Máximo de usuários<input type="number" min={1} max={100} value={maxUsers} onChange={(e) => setMaxUsers(Number(e.target.value))} /></label><fieldset className="admin-feature-list"><legend>Recursos liberados</legend>{(Object.keys(featureLabels) as FeatureKey[]).map((key) => <label key={key}><input type="checkbox" checked={features[key]} onChange={(e) => setFeatures({ ...features, [key]: e.target.checked })} /> {featureLabels[key]}</label>)}</fieldset>{error && <p className="auth-error">{error}</p>}<div className="admin-modal-actions"><button type="button" className="admin-cancel-button" onClick={onClose}>Cancelar</button><button disabled={saving} type="submit">{saving ? 'Salvando...' : 'Salvar permissões'}</button></div></form></Modal>;
 }
 
 function AdminSection({ icon, title, subtitle, children }: { icon: React.ReactNode; title: string; subtitle: string; children: React.ReactNode }) { return <section className="admin-section"><div className="admin-section-heading"><span>{icon}</span><div><h3>{title}</h3><p>{subtitle}</p></div></div>{children}</section>; }

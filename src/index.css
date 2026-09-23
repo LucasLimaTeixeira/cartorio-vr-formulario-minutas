@@ -65,6 +65,10 @@
 .admin-modal-user { margin: 0; color: #244b6b; font-size: .86rem; font-weight: 700; }
 .admin-modal-user small { display: block; margin-top: .2rem; color: #70869a; font-weight: 400; }
 .admin-modal-hint { margin: -.25rem 0 0; color: #72869a; font-size: .72rem; }
+.admin-feature-list { display: grid; gap: .5rem; border: 1px solid #d9e5ee; border-radius: .6rem; padding: .75rem; }
+.admin-feature-list legend { padding: 0 .25rem; color: #37536c; font-size: .78rem; font-weight: 700; }
+.admin-feature-list label { display: flex; align-items: center; gap: .45rem; font-weight: 500; }
+.admin-feature-list input { width: auto; }
 .admin-modal-actions { display: flex; justify-content: flex-end; gap: .65rem; margin-top: .3rem; }
 .admin-modal-actions button { border: 0; border-radius: .55rem; padding: .62rem .85rem; background: #1672b8; color: #fff; font-size: .78rem; font-weight: 700; }
 .admin-modal-actions .admin-cancel-button { background: #edf3f7; color: #47647b; }

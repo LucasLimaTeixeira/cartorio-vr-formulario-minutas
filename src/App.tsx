@@ -20,7 +20,7 @@ import {
 } from './types';
 import { MinutaModal, TipoMinuta } from './components/MinutaModal';
 import { SuperAdminClients } from './components/SuperAdminClients';
-import { loadWorkspaceState, saveWorkspaceState, workspaceProfile } from './utils/workspaceStorage';
+import { hasWorkspaceFeature, isSystemAdmin, loadWorkspaceState, saveWorkspaceState, workspaceProfile } from './utils/workspaceStorage';
 import { supabase } from './lib/supabase';
 import { AgendamentoAgenda, CadastroAgenda, assinarAgenda, atualizarStatusAgendamento, carregarAgenda, removerItemAgenda, reservarAgendamento, salvarCadastro, atosAgendaIniciais } from './utils/agendaService';
 
@@ -1882,7 +1882,7 @@ const renderizarCamposTestemunha = (
         </div>
         <p className="dashboard-menu-title">Navegação</p>
         <nav className="dashboard-nav" aria-label="Formulários">
-          {itensMenu.map(({ id, label, icon: Icon }) => (
+          {itensMenu.filter(({ id }) => id === 'super-admin' ? isSystemAdmin() : hasWorkspaceFeature(id as import('./utils/workspaceStorage').WorkspaceFeature)).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -1935,7 +1935,7 @@ const renderizarCamposTestemunha = (
         <div className="app-panel bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:mb-4">
           <div className="p-6 print:p-2">
             {abaAtiva === 'agenda' && <AgendaAtendimentos cadastrosAguardando={cadastrosAguardando} onCadastroAgendado={removerCadastroAgendado} onAgendamentoRemarcado={adicionarCadastroAguardando} />}
-            {abaAtiva === 'super-admin' && <SuperAdminClients />}
+            {abaAtiva === 'super-admin' && isSystemAdmin() && <SuperAdminClients />}
 
             {abaAtiva === 'procuracao' && (
               <div className="space-y-8 print:space-y-4">

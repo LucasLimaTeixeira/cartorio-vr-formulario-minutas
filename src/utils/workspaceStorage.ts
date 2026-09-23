@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase';
 
 export type WorkspacePlan = 'trial' | 'professional';
 export type WorkspaceRole = 'owner' | 'admin' | 'attendant' | 'viewer';
+export type WorkspaceFeature = 'agenda' | 'procuracao' | 'apostilamento' | 'certidoes' | 'uniao_estavel' | 'pacto_antenupcial' | 'outros';
+export type WorkspaceFeatures = Record<WorkspaceFeature, boolean>;
+export const defaultWorkspaceFeatures: WorkspaceFeatures = { agenda: true, procuracao: true, apostilamento: true, certidoes: true, uniao_estavel: true, pacto_antenupcial: true, outros: true };
 
 export interface WorkspaceProfile {
   workspaceId: string;
@@ -14,6 +17,8 @@ export interface WorkspaceProfile {
   userEmail: string;
   plan: WorkspacePlan;
   role: WorkspaceRole;
+  features: WorkspaceFeatures;
+  isSystemAdmin: boolean;
 }
 
 export let workspaceProfile: WorkspaceProfile = {
@@ -26,6 +31,8 @@ export let workspaceProfile: WorkspaceProfile = {
   userEmail: 'admin@workspace.local',
   plan: 'trial',
   role: 'owner',
+  features: defaultWorkspaceFeatures,
+  isSystemAdmin: false,
 };
 
 export function configureWorkspaceProfile(profile: WorkspaceProfile) {
@@ -38,6 +45,14 @@ export function isWorkspaceOwner() {
 
 export function canEditWorkspace() {
   return ['owner', 'admin', 'attendant'].includes(workspaceProfile.role);
+}
+
+export function hasWorkspaceFeature(feature: WorkspaceFeature) {
+  return workspaceProfile.features[feature];
+}
+
+export function isSystemAdmin() {
+  return workspaceProfile.isSystemAdmin;
 }
 
 function storageKey(key: string) {
@@ -59,7 +74,7 @@ export function loadWorkspaceState<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
 
   try {
-    const saved = window.localStorage.getItem(storageKey(key));
+    const saved = window.sessionStorage.getItem(storageKey(key));
     return saved ? (JSON.parse(saved) as T) : fallback;
   } catch {
     return fallback;
@@ -70,7 +85,7 @@ export function saveWorkspaceState<T>(key: string, value: T) {
   if (typeof window === 'undefined') return;
 
   try {
-    window.localStorage.setItem(storageKey(key), JSON.stringify(value));
+    window.sessionStorage.setItem(storageKey(key), JSON.stringify(value));
   } catch {
     return;
   }
@@ -109,6 +124,6 @@ export async function hydrateWorkspaceDrafts() {
 
   data.forEach((draft) => {
     const key = keys[draft.form_type];
-    if (key) window.localStorage.setItem(storageKey(key), JSON.stringify(draft.data));
+    if (key) window.sessionStorage.setItem(storageKey(key), JSON.stringify(draft.data));
   });
 }
