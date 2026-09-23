@@ -37,7 +37,7 @@ export function TelaInicial({ onNavegar, cadastrosAguardando }: { onNavegar: (ab
   const deHoje = useMemo(() => agendamentos.filter((a) => a.data === hoje).sort((a, b) => a.horario.localeCompare(b.horario)), [agendamentos, hoje]);
   const proximos = deHoje.filter((a) => !a.realizado).slice(0, 4);
   const liberados = atalhos.filter((a) => profile.features[a.id]);
-  const semCartorio = profile.workspaceName === 'Administração geral' && !liberados.length;
+  const semCartorio = profile.workspaceId === 'workspace-local-demo';
   const diasParaVencer = profile.periodEnd ? Math.ceil((new Date(profile.periodEnd).getTime() - Date.now()) / 86400000) : null;
   const gestor = profile.role === 'owner' || profile.role === 'admin';
   const aviso = !isWorkspaceWritable()

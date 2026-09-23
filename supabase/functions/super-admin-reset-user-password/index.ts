@@ -22,8 +22,8 @@ Deno.serve(async (request) => {
     if (!user || !isSuperAdmin) return Response.json({ error: 'Sem permissão.' }, { status: 403, headers: corsHeaders });
 
     const { userId, password } = await request.json() as { userId?: string; password?: string };
-    if (!userId || !password || password.length < 8) {
-      return Response.json({ error: 'A senha deve ter pelo menos 8 caracteres.' }, { status: 400, headers: corsHeaders });
+    if (!userId || !password || password.length < 12) {
+      return Response.json({ error: 'A senha deve ter pelo menos 12 caracteres.' }, { status: 400, headers: corsHeaders });
     }
 
     const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
