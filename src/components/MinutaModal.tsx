@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Printer, Copy, Check } from 'lucide-react';
 import {
   FormularioProcuracao,
@@ -15,15 +15,9 @@ import {
   gerarMinutaPactoAntenupcial,
   MinutaGerada,
 } from '../utils/gerarMinuta';
-import { loadWorkspaceState } from '../utils/workspaceStorage';
-import type { MinutaModels } from './MinutaModelsEditor';
+import { TipoMinuta, carregarModelosMinuta, useModelosPersonalizados } from '../utils/modelosMinuta';
 
-export type TipoMinuta =
-  | 'procuracao'
-  | 'apostilamento'
-  | 'certidoes'
-  | 'uniao_estavel'
-  | 'pacto_antenupcial';
+export type { TipoMinuta };
 
 interface MinutaModalProps {
   tipo: TipoMinuta;
@@ -65,28 +59,17 @@ export function MinutaModal({
 }: MinutaModalProps) {
   const [copiado, setCopiado] = useState(false);
 
-  const minutaBase: MinutaGerada = useMemo(() => {
-    if (tipo === 'procuracao') return gerarMinutaProcuracao(formulario);
-    if (tipo === 'apostilamento') return gerarMinutaApostilamento(formularioApostilamento);
-    if (tipo === 'certidoes') return gerarMinutaCertidao(formularioCertidao);
-    if (tipo === 'uniao_estavel') return gerarMinutaUniaoEstavel(formularioUniaoEstavel);
-    return gerarMinutaPactoAntenupcial(formularioPactoAntenupcial);
-  }, [
-    tipo,
-    formulario,
-    formularioApostilamento,
-    formularioCertidao,
-    formularioUniaoEstavel,
-    formularioPactoAntenupcial,
-  ]);
+  // Busca a versão mais recente dos modelos (o Super Admin pode tê-los alterado desde o login)
+  // e re-renderiza a minuta quando ela chegar.
+  useModelosPersonalizados();
+  useEffect(() => { void carregarModelosMinuta().catch(() => undefined); }, []);
 
-  const minuta: MinutaGerada = useMemo(() => {
-    const modelos = loadWorkspaceState<MinutaModels>('modelos-minuta', {});
-    const modelo = modelos[tipo];
-    if (!modelo) return minutaBase;
-    const corpo = modelo.replaceAll('[CORPO_GERADO]', minutaBase.corpo);
-    return { ...minutaBase, corpo, textoCompleto: [minutaBase.cabecalho.join('\n'), minutaBase.titulo, corpo, minutaBase.fechamento, minutaBase.assinantes.join('\n')].filter(Boolean).join('\n\n') };
-  }, [minutaBase, tipo]);
+  const minuta: MinutaGerada =
+    tipo === 'procuracao' ? gerarMinutaProcuracao(formulario)
+    : tipo === 'apostilamento' ? gerarMinutaApostilamento(formularioApostilamento)
+    : tipo === 'certidoes' ? gerarMinutaCertidao(formularioCertidao)
+    : tipo === 'uniao_estavel' ? gerarMinutaUniaoEstavel(formularioUniaoEstavel)
+    : gerarMinutaPactoAntenupcial(formularioPactoAntenupcial);
 
   const paragrafosCorpo = useMemo(() => dividirParagrafos(minuta.corpo), [minuta.corpo]);
   const paragrafosFechamento = useMemo(() => dividirParagrafos(minuta.fechamento), [minuta.fechamento]);

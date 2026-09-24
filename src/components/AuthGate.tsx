@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ArrowRight, FileText, KeyRound, Loader2, LogIn, LogOut, UserPlus } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from '../lib/supabase';
+import { carregarModelosMinuta } from '../utils/modelosMinuta';
 import {
   configureWorkspaceProfile,
   hydrateWorkspaceDrafts,
@@ -221,7 +222,8 @@ function AuthenticatedApp({ session }: { session: Session }) {
       if (subscriptionError) { setError(subscriptionError.message); setReady(true); return; }
       applyWorkspaceProfile(session, workspace, (membership as MembershipRow).role, subscription as SubscriptionRow | null, isSuperAdmin === true);
       setActiveWorkspaceId(workspace.id);
-      await hydrateWorkspaceDrafts();
+      // Sem os modelos personalizados a minuta usa o texto padrão; não impede o login.
+      await Promise.all([hydrateWorkspaceDrafts(), carregarModelosMinuta().catch(() => undefined)]);
       if (mounted) setReady(true);
     }
 

@@ -146,6 +146,15 @@
 .admin-contract-form .admin-feature-list { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .admin-contract-form .admin-feature-list label { display: flex; font-weight: 500; }
 .admin-renew { grid-column: 1 / -1; justify-self: start; }
+.modelos-minuta-form textarea { resize: vertical; font-family: Georgia, 'Times New Roman', serif; font-size: .88rem; line-height: 1.6; }
+.modelos-variaveis { display: grid; gap: .5rem; border: 1px solid #e3ebf2; border-radius: .8rem; padding: .85rem 1rem; background: #f8fbfd; }
+.modelos-variaveis p { margin: 0; color: #37536c; font-size: .78rem; font-weight: 700; }
+.modelos-variaveis small { color: #71869a; font-size: .72rem; }
+.modelos-variaveis div { display: flex; flex-wrap: wrap; gap: .35rem; }
+.modelos-variaveis button { border: 1px solid #cfe0ee; border-radius: 999px; padding: .25rem .6rem; background: #fff; color: #27658f; font-family: ui-monospace, Consolas, monospace; font-size: .72rem; font-weight: 700; }
+.modelos-variaveis button:hover { border-color: #1672b8; background: #eef6fd; }
+.modelos-acoes { flex-wrap: wrap; }
+.modelos-acoes .admin-action-button { margin-right: auto; }
 @media (max-width: 1100px) { .admin-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .admin-workspace-layout { grid-template-columns: 1fr; } .admin-workspace-list { position: static; } .admin-workspace-list ul { max-height: 16rem; } }
 @media (max-width: 640px) { .admin-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-info-grid, .admin-contract-form fieldset, .admin-contract-form .admin-feature-list { grid-template-columns: 1fr; } .admin-detail-header { flex-direction: column; padding: 1rem; } .admin-detail-body { padding: 1rem; } .admin-users-toolbar { flex-direction: column; align-items: stretch; } }
 @media (max-width: 640px) { .super-admin-header { align-items: flex-start; flex-direction: column; padding: 1.1rem; } .super-admin-summary { justify-content: flex-start; } .admin-section-heading { padding: 1rem; } .admin-table th, .admin-table td { padding-left: 1rem; padding-right: 1rem; } }
@@ -1553,6 +1562,11 @@
 .dark .super-admin-panel .admin-search { border-color: var(--line); background-color: var(--surface-soft); color: var(--ink); }
 .dark .super-admin-panel .admin-search input { background: transparent; }
 .dark .super-admin-panel .admin-search svg { color: var(--muted); }
+.dark .modelos-variaveis { border-color: var(--line); background: var(--surface-soft); }
+.dark .modelos-variaveis p { color: #d6e6ea; }
+.dark .modelos-variaveis small { color: var(--muted); }
+.dark .modelos-variaveis button { border-color: var(--line); background: var(--surface); color: var(--accent); }
+.dark .modelos-variaveis button:hover { border-color: var(--accent); background: var(--accent-soft); }
 .dark .super-admin-panel input::placeholder, .dark .super-admin-panel textarea::placeholder { color: #7f949b; }
 .dark .super-admin-panel input[type="checkbox"], .dark .admin-modal input[type="checkbox"] { accent-color: var(--accent); }
 .dark .super-admin-panel input:focus-visible, .dark .super-admin-panel select:focus-visible, .dark .super-admin-panel textarea:focus-visible,

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2, LogOut, LayoutDashboard } from 'lucide-react';
+import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2, LogOut, LayoutDashboard, ScrollText } from 'lucide-react';
 import {
   Pessoa,
   DadosBancarios,
@@ -20,6 +20,7 @@ import {
 } from './types';
 import { MinutaModal, TipoMinuta } from './components/MinutaModal';
 import { SuperAdminClients } from './components/SuperAdminClients';
+import { ModelosMinutaAdmin } from './components/ModelosMinutaAdmin';
 import { WorkspaceFeature, loadWorkspaceState, saveWorkspaceState, useWorkspaceProfile } from './utils/workspaceStorage';
 import { TelaInicial } from './components/TelaInicial';
 import { supabase } from './lib/supabase';
@@ -35,6 +36,7 @@ const itensMenu = [
   { id: 'pacto_antenupcial', label: 'Pacto Antenupcial', icon: Building },
   { id: 'outros', label: 'Outros Formulários', icon: CreditCard },
   { id: 'super-admin', label: 'Administração', icon: Shield },
+  { id: 'modelos-minuta', label: 'Modelos de Minutas', icon: ScrollText },
 ];
 
 function TermosCondicoes() {
@@ -452,7 +454,8 @@ function App() {
   const [abaAtiva, setAbaAtiva] = useState('inicio');
   const profile = useWorkspaceProfile();
   // Recursos desabilitados somem do menu na hora e a aba aberta volta para a tela inicial.
-  const podeAcessar = (aba: string) => aba === 'inicio' || (aba === 'super-admin' ? profile.isSystemAdmin : Boolean(profile.features[aba as WorkspaceFeature]));
+  const abasSuperAdmin = ['super-admin', 'modelos-minuta'];
+  const podeAcessar = (aba: string) => aba === 'inicio' || (abasSuperAdmin.includes(aba) ? profile.isSystemAdmin : Boolean(profile.features[aba as WorkspaceFeature]));
   const abaVisivel = podeAcessar(abaAtiva) ? abaAtiva : 'inicio';
   useEffect(() => { if (abaVisivel !== abaAtiva) setAbaAtiva(abaVisivel); }, [abaVisivel, abaAtiva]);
   const abrirAba = (aba: string) => { setAbaAtiva(aba); setMenuAberto(false); window.scrollTo({ top: 0 }); };
@@ -1919,7 +1922,7 @@ const renderizarCamposTestemunha = (
             {temaEscuro ? 'Tema claro' : 'Tema escuro'}
           </button>
         </div>
-        {!['inicio', 'super-admin'].includes(abaVisivel) && <header className="app-header text-center mb-8 print:mb-4">
+        {!['inicio', ...abasSuperAdmin].includes(abaVisivel) && <header className="app-header text-center mb-8 print:mb-4">
         <h1 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3 print:text-2xl print:mb-1">
   <FileText className="w-10 h-10 text-blue-600 print:hidden" />
   Cartório OS · Plataforma de Formulários
@@ -1927,7 +1930,7 @@ const renderizarCamposTestemunha = (
 <p className="text-gray-600 text-lg print:text-sm print:mb-2">Sistema de Geração de Formulários</p>
         </header>}
 
-        {!['inicio', 'super-admin', 'agenda'].includes(abaVisivel) && <aside className="app-notice mb-8 px-5 py-4 print:hidden" role="note">
+        {!['inicio', 'agenda', ...abasSuperAdmin].includes(abaVisivel) && <aside className="app-notice mb-8 px-5 py-4 print:hidden" role="note">
           <p>
             Os rascunhos ficam salvos na conta do cartório e só os usuários dele têm acesso. Evite compartilhar telas, textos copiados ou arquivos impressos que contenham dados pessoais.
           </p>
@@ -1942,6 +1945,7 @@ const renderizarCamposTestemunha = (
             {abaVisivel === 'agenda' && <AgendaAtendimentos cadastrosAguardando={cadastrosAguardando} onCadastroAgendado={removerCadastroAgendado} onAgendamentoRemarcado={adicionarCadastroAguardando} />}
             {abaVisivel === 'inicio' && <TelaInicial onNavegar={abrirAba} cadastrosAguardando={cadastrosAguardando.length} />}
             {abaVisivel === 'super-admin' && <SuperAdminClients />}
+            {abaVisivel === 'modelos-minuta' && <ModelosMinutaAdmin />}
             {abaVisivel === 'outros' && <p className="home-empty">Outros formulários estarão disponíveis em breve.</p>}
 
             {abaVisivel === 'procuracao' && (

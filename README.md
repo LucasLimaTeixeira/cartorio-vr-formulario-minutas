@@ -33,6 +33,7 @@ O sistema reúne dados de pessoas, documentos, poderes, imóveis, veículos, tes
 - Texto formatado em página A4 para revisão.
 - Cópia do texto completo da minuta para a área de transferência.
 - Impressão direta pelo navegador.
+- Texto padrão das minutas editável pelo Super Admin na aba **Modelos de Minutas**, com variáveis como `{{OUTORGANTES}}` e trechos condicionais `{{#FILHOS}}...{{/FILHOS}}`. Vale para todos os cartórios; o que não foi personalizado usa o texto original do código.
 - Botão de impressão disponível nos formulários de apostilamento e certidões.
 - Controles de interface e avisos informativos não aparecem no documento impresso.
 
@@ -143,8 +144,10 @@ src/
 	types.ts                   # Tipos e opções dos formulários
 	components/
 		MinutaModal.tsx          # Visualização, cópia e impressão de minutas
+		ModelosMinutaAdmin.tsx   # Edição dos modelos de minuta (Super Admin)
 	utils/
 		gerarMinuta.ts           # Geração dos textos das minutas
+		modelosMinuta.ts         # Modelos padrão, variáveis e preenchimento
 ```
 
 ## Personalização do cartório
@@ -161,7 +164,7 @@ As minutas são modelos de apoio ao atendimento e devem ser revisadas por profis
 
 A autenticação, o workspace e a sincronização usam Supabase. Depois do login, o usuário **cria o cartório** ou **entra com um código de convite**. Nenhum workspace é criado automaticamente.
 
-Papéis: proprietário, administrador, atendente e consulta. A consulta visualiza dados; as demais funções editam rascunhos e agenda, conforme as políticas RLS. Equipe e modelos de minuta ficam só com o proprietário.
+Papéis: proprietário, administrador, atendente e consulta. A consulta visualiza dados; as demais funções editam rascunhos e agenda, conforme as políticas RLS. A equipe fica com o proprietário. Os modelos de minuta (tabela `minuta_templates`) são lidos por todos os usuários e alterados só pelo Super Admin.
 
 ### Configurar Supabase
 
