@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2, LogOut, LayoutDashboard, ScrollText } from 'lucide-react';
 import {
   Pessoa,
@@ -21,10 +21,13 @@ import {
 import { MinutaModal, TipoMinuta } from './components/MinutaModal';
 import { SuperAdminClients } from './components/SuperAdminClients';
 import { ModelosMinutaAdmin } from './components/ModelosMinutaAdmin';
-import { WorkspaceFeature, loadWorkspaceState, saveWorkspaceState, useWorkspaceProfile } from './utils/workspaceStorage';
+import { WorkspaceFeature, loadWorkspaceState, useWorkspaceProfile } from './utils/workspaceStorage';
+import { useAtendimento } from './utils/atendimentos';
+import { BarraAtendimento } from './components/BarraAtendimento';
 import { TelaInicial } from './components/TelaInicial';
 import { supabase } from './lib/supabase';
-import { AgendamentoAgenda, CadastroAgenda, assinarAgenda, atualizarStatusAgendamento, carregarAgenda, removerItemAgenda, reservarAgendamento, salvarCadastro, atosAgendaIniciais } from './utils/agendaService';
+import { AgendamentoAgenda, CadastroAgenda, assinarAgenda, atualizarStatusAgendamento, carregarAgenda, removerItemAgenda, reservarAgendamento, salvarCadastro } from './utils/agendaService';
+import { MembroEquipe, carregarEquipe } from './utils/equipe';
 
 const itensMenu = [
   { id: 'inicio', label: 'Tela inicial', icon: LayoutDashboard },
@@ -56,13 +59,6 @@ function TermosCondicoes() {
     </section>
   );
 }
-
-const atendentesAgenda = [
-  { id: 'ana', nome: 'Ana Martins', iniciais: 'AM', funcao: 'Escrevente', atos: 5 },
-  { id: 'bruno', nome: 'Bruno Costa', iniciais: 'BC', funcao: 'Substituto', atos: 4 },
-  { id: 'carla', nome: 'Carla Mendes', iniciais: 'CM', funcao: 'Escrevente', atos: 3 },
-  { id: 'diego', nome: 'Diego Alves', iniciais: 'DA', funcao: 'Auxiliar', atos: 2 },
-];
 
 const horariosAgenda = Array.from({ length: 18 }, (_, index) => {
   const minutosDoDia = 8 * 60 + 30 + index * 30;
@@ -150,7 +146,7 @@ function converterDataParaDate(dataIso: string) {
 }
 
 interface PainelAtendenteProps {
-  atendente: typeof atendentesAgenda[number];
+  atendente: MembroEquipe;
   agendamentos: AgendamentoAgenda[];
   onVoltar: () => void;
 }
@@ -158,7 +154,7 @@ interface PainelAtendenteProps {
 function PainelAtendente({ atendente, agendamentos, onVoltar }: PainelAtendenteProps) {
   const [buscaCliente, setBuscaCliente] = useState('');
   const [dataFiltro, setDataFiltro] = useState('');
-  const hoje = new Date(2026, 8, 13);
+  const hoje = new Date();
   const inicioSemana = inicioDaSemana(hoje);
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const agendamentosDoAtendente = useMemo(
@@ -219,10 +215,12 @@ interface AgendaAtendimentosProps {
 }
 
 function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAgendamentoRemarcado }: AgendaAtendimentosProps) {
+  const profile = useWorkspaceProfile();
   const [dataAgenda, setDataAgenda] = useState(hojeNaAgenda);
   const [dataAgendaTexto, setDataAgendaTexto] = useState(() => formatarDataAgenda(hojeNaAgenda()));
-  const [agendamentos, setAgendamentos] = useState(atosAgendaIniciais);
-  const [atendenteSelecionado, setAtendenteSelecionado] = useState('ana');
+  const [agendamentos, setAgendamentos] = useState<AgendamentoAgenda[]>([]);
+  const [equipe, setEquipe] = useState<MembroEquipe[]>([]);
+  const [atendenteSelecionado, setAtendenteSelecionado] = useState('');
   const [horarioSelecionado, setHorarioSelecionado] = useState('13:30');
   const [salaSelecionada, setSalaSelecionada] = useState('Sala 1');
   const [atoSelecionado, setAtoSelecionado] = useState('Novo atendimento');
@@ -248,6 +246,19 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
     };
   }, []);
 
+  // Equipe real do cartório; quem está logado já vem selecionado para o próximo agendamento.
+  useEffect(() => {
+    let mounted = true;
+    void carregarEquipe().then((membros) => {
+      if (!mounted) return;
+      setEquipe(membros);
+      setAtendenteSelecionado((atual) => atual || (membros.find((m) => m.id === profile.userId) ?? membros[0])?.id || '');
+    }).catch(() => {
+      if (mounted) setMensagemAgenda('Não foi possível carregar a equipe do cartório.');
+    });
+    return () => { mounted = false; };
+  }, [profile.userId]);
+
   const agendamentosDoDia = useMemo(
     () => agendamentos.filter((item) => item.data === dataAgenda),
     [agendamentos, dataAgenda],
@@ -272,8 +283,9 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
   const cadastroParaAgendar = cadastrosAguardando.find((cadastro) => cadastro.id.toString() === cadastroSelecionado) ?? cadastrosAguardando[0];
   const usaSalaSelecionada = cadastroParaAgendar?.usaSala ?? true;
 
-  const obterNomeAtendente = (id: string) => atendentesAgenda.find((atendente) => atendente.id === id)?.nome ?? 'Atendente';
-  const atendenteSelecionadoParaPainel = atendentesAgenda.find((atendente) => atendente.id === atendenteEmFoco);
+  // Agendamentos de quem saiu da equipe continuam mostrando o nome gravado na reserva.
+  const nomeAtendente = (agendamento: AgendamentoAgenda) => equipe.find((m) => m.id === agendamento.atendente)?.nome ?? agendamento.atendenteNome ?? 'Atendente removido';
+  const atendenteSelecionadoParaPainel = equipe.find((atendente) => atendente.id === atendenteEmFoco);
 
   if (atendenteSelecionadoParaPainel) {
     return <PainelAtendente atendente={atendenteSelecionadoParaPainel} agendamentos={agendamentos} onVoltar={() => setAtendenteEmFoco(null)} />;
@@ -302,7 +314,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
     setMensagemAgenda('Status do atendimento atualizado.');
   };
 
-  const remarcarAgendamento = (agendamento: typeof atosAgendaIniciais[number]) => {
+  const remarcarAgendamento = (agendamento: AgendamentoAgenda) => {
     setAgendamentos((atuais) => atuais.filter((item) => item.id !== agendamento.id));
     void removerItemAgenda(agendamento.id);
     onAgendamentoRemarcado({
@@ -320,6 +332,11 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
   };
 
   const agendarAtendimento = async () => {
+    const atendente = equipe.find((m) => m.id === atendenteSelecionado);
+    if (!atendente) {
+      setMensagemAgenda('Escolha quem vai fazer o atendimento.');
+      return;
+    }
     const atosNoHorario = agendamentosComSala.filter((item) => item.horario === horarioSelecionado);
     const salaOcupada = agendamentosComSala.some((item) => item.horario === horarioSelecionado && item.sala === salaSelecionada);
 
@@ -338,7 +355,8 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
         data: dataAgenda,
         horario: horarioSelecionado,
         sala: usaSalaSelecionada ? salaSelecionada : 'Sem sala',
-        atendente: atendenteSelecionado,
+        atendente: atendente.id,
+        atendenteNome: atendente.nome,
         ato: cadastroParaAgendar?.descricao ?? atoSelecionado,
         cliente: cadastroParaAgendar?.cliente ?? 'Cliente não informado',
         usaSala: usaSalaSelecionada,
@@ -393,7 +411,8 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
       <section className="agenda-section">
         <div className="agenda-section-heading"><div><span className="agenda-kicker"><UsersRound className="w-4 h-4" /> Equipe em serviço</span><h3>Atos por atendente</h3></div><span className="agenda-section-note">{formatarDataAgenda(dataAgenda)}</span></div>
         <div className="attendant-grid">
-          {atendentesAgenda.map((atendente) => (
+          {equipe.length === 0 && <p className="pending-empty">Nenhum atendente na equipe. Os usuários do cartório aparecem aqui assim que forem cadastrados.</p>}
+          {equipe.map((atendente) => (
             <button type="button" className="attendant-card" key={atendente.id} onClick={() => setAtendenteEmFoco(atendente.id)}>
               <span className="attendant-avatar" aria-label={`Iniciais de ${atendente.nome}`}>{atendente.iniciais}</span>
               <div><strong>{atendente.nome}</strong><span>{atendente.funcao}</span></div>
@@ -410,7 +429,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
 
       <section className="agenda-section no-room-section">
         <div className="agenda-section-heading"><div><span className="agenda-kicker"><FileText className="w-4 h-4" /> Fluxo sem sala</span><h3>Certidões e apostilamentos</h3></div><span className="agenda-section-note">{agendamentosSemSala.length} atendimento(s)</span></div>
-        {agendamentosSemSala.length > 0 ? <div className="no-room-grid">{agendamentosSemSala.map((atendimento) => <article className={`no-room-card ${atendimento.realizado ? 'is-done' : ''}`} key={atendimento.id}><div><span>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.horario} · {atendimento.ato}</span><strong>{atendimento.cliente}</strong><small>Atendimento sem utilização de sala · {obterNomeAtendente(atendimento.atendente)}</small></div><div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div></article>)}</div> : <p className="pending-empty">Nenhuma certidão ou apostilamento agendado para este dia.</p>}
+        {agendamentosSemSala.length > 0 ? <div className="no-room-grid">{agendamentosSemSala.map((atendimento) => <article className={`no-room-card ${atendimento.realizado ? 'is-done' : ''}`} key={atendimento.id}><div><span>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.horario} · {atendimento.ato}</span><strong>{atendimento.cliente}</strong><small>Atendimento sem utilização de sala · {nomeAtendente(atendimento)}</small></div><div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div></article>)}</div> : <p className="pending-empty">Nenhuma certidão ou apostilamento agendado para este dia.</p>}
       </section>
 
       <div className="agenda-columns">
@@ -425,7 +444,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
                 {salasAgenda.map((sala) => {
                   const atendimento = atosDoHorario.find((item) => item.sala === sala);
                   return <div className={`schedule-room ${atendimento ? 'is-booked' : 'is-free'} ${atendimento?.realizado ? 'is-done' : ''}`} key={sala}>
-                    {atendimento ? <><b>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.ato}</b><span className="schedule-client">Cliente: {atendimento.cliente}</span><span>{obterNomeAtendente(atendimento.atendente)}</span><div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div></> : <span>Livre</span>}
+                    {atendimento ? <><b>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.ato}</b><span className="schedule-client">Cliente: {atendimento.cliente}</span><span>{nomeAtendente(atendimento)}</span><div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div></> : <span>Livre</span>}
                   </div>;
                 })}
               </div>;
@@ -437,11 +456,11 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
           <div className="agenda-section-heading"><div><span className="agenda-kicker"><Plus className="w-4 h-4" /> Ação rápida</span><h3>Novo atendimento</h3></div></div>
           <div className="booking-form">
             <label>Cadastro<select value={cadastroParaAgendar?.id.toString() ?? ''} onChange={(event) => setCadastroSelecionado(event.target.value)}><option value="">Atendimento avulso</option>{cadastrosAguardando.map((cadastro) => <option value={cadastro.id} key={cadastro.id}>{cadastro.formulario} · {cadastro.descricao}</option>)}</select></label>
-            <label>Atendente<select value={atendenteSelecionado} onChange={(event) => setAtendenteSelecionado(event.target.value)}>{atendentesAgenda.map((atendente) => <option value={atendente.id} key={atendente.id}>{atendente.nome}</option>)}</select></label>
+            <label>Atendente<select value={atendenteSelecionado} onChange={(event) => setAtendenteSelecionado(event.target.value)}>{!equipe.length && <option value="">Nenhum atendente cadastrado</option>}{equipe.map((atendente) => <option value={atendente.id} key={atendente.id}>{atendente.nome}</option>)}</select></label>
             <label>Tipo de ato<select value={atoSelecionado} onChange={(event) => setAtoSelecionado(event.target.value)}><option>Novo atendimento</option><option>Procuração pública</option><option>Escritura</option><option>Certidão</option><option>Apostilamento</option></select></label>
             <label>Horário<select value={horarioSelecionado} onChange={(event) => setHorarioSelecionado(event.target.value)}>{horariosAgenda.map((horario) => <option value={horario} key={horario}>{horario}{horariosCheios.includes(horario) ? ' · lotado' : ''}</option>)}</select></label>
             {usaSalaSelecionada && <label>Sala<select value={salaSelecionada} onChange={(event) => setSalaSelecionada(event.target.value)}>{salasAgenda.map((sala) => <option value={sala} key={sala}>{sala}{!salasLivres.includes(sala) ? ' · ocupada' : ''}</option>)}</select></label>}
-            <button type="button" onClick={() => void agendarAtendimento()} className="booking-button" disabled={usaSalaSelecionada && (horariosCheios.includes(horarioSelecionado) || !salasLivres.includes(salaSelecionada))}><CheckCircle2 className="w-4 h-4" /> {usaSalaSelecionada ? 'Reservar sala e horário' : 'Reservar horário sem sala'}</button>
+            <button type="button" onClick={() => void agendarAtendimento()} className="booking-button" disabled={!atendenteSelecionado || (usaSalaSelecionada && (horariosCheios.includes(horarioSelecionado) || !salasLivres.includes(salaSelecionada)))}><CheckCircle2 className="w-4 h-4" /> {usaSalaSelecionada ? 'Reservar sala e horário' : 'Reservar horário sem sala'}</button>
             {mensagemAgenda && <p className="booking-feedback">{mensagemAgenda}</p>}
           </div>
         </section>
@@ -449,6 +468,135 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
     </div>
   );
 }
+
+// Formulários em branco, usados ao abrir um novo atendimento.
+function formularioProcuracaoVazio(): FormularioProcuracao {
+  return {
+    outorgantes: [{
+      id: '1',
+      nome: '',
+      documento: '',
+      tipoDocumento: 'CPF',
+      nacionalidade: 'Brasileira',
+      rg: '',
+      dataExpedicaoRg: '',
+       orgaoExpedidor: '',
+      endereco: '',
+      telefone: '',
+      profissao: '',
+      estadoCivil: ''
+    }],
+    outorgados: [{
+      id: '1',
+      nome: '',
+      documento: '',
+      tipoDocumento: 'CPF',
+      nacionalidade: 'Brasileira',
+      rg: '',
+      dataExpedicaoRg: '',
+      orgaoExpedidor: '',
+      endereco: '',
+      profissao: '',
+      estadoCivil: ''
+    }],
+    testemunhas: [],
+    poderesOutorgados: [],
+    dadosBancarios: [],
+    dadosImovel: [],
+    dadosAdministracaoImovel: [],
+    dadosVeiculo: [],
+   outros: [],
+  };
+}
+
+function formularioApostilamentoVazio(): FormularioApostilamento {
+  return {
+    dataEntrega: '',
+    horarioEntrega: '',
+    requerentes: [{
+      id: '1',
+      nome: '',
+      cpf: '',
+      rg: '',
+      dataExpedicaoRg: '',
+      orgaoExpedidor: '',
+      endereco: '',
+      telefone: '',
+      profissao: '',
+      estadoCivil: '',
+      email: '',
+      dataNascimento: '',
+      filiacao: ''
+    }],
+    paisDestino: '',
+    quantidadeDocumentos: '',
+    quaisDocumentos: '',
+    assinaturaApostilada: ''
+  };
+}
+
+function formularioCertidaoVazio(): FormularioCertidao {
+  return {
+    dataEntrega: '',
+    horarioEntrega: '',
+    requerentes: [{
+      id: '1',
+      nome: '',
+      cpf: '',
+      rg: '',
+      dataExpedicaoRg: '',
+      orgaoExpedidor: '',
+      endereco: '',
+      telefone: '',
+      profissao: '',
+      estadoCivil: '',
+      email: '',
+      dataNascimento: '',
+      filiacao: ''
+    }],
+    tipoCertidao: '',
+    nomeOutorgantes: '',
+    nomeOutorgados: '',
+    livro: '',
+    folha: '',
+    data: '',
+    finalidade: ''
+  };
+}
+
+function formularioUniaoEstavelVazio(): FormularioUniaoEstavel {
+  return {
+    companheiros: [
+      { id: '1', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
+      { id: '2', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
+    ],
+    dataInicioUniao: '',
+    regimeBens: '',
+    enderecoComum: '',
+    filhos: '',
+    testemunhas: [],
+  };
+}
+
+function formularioPactoAntenupcialVazio(): FormularioPactoAntenupcial {
+  return {
+    nubentes: [
+      { id: '1', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
+      { id: '2', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
+    ],
+    regimeBens: '',
+    clausulasEspecificas: '',
+    dataPrevistaCasamento: '',
+    bensParticulares: '',
+    testemunhas: [],
+  };
+}
+
+const nomesDe = (pessoas: { nome?: string }[]) => pessoas.map((p) => p.nome?.trim()).filter(Boolean).join(' e ');
+const clienteProcuracao = (f: FormularioProcuracao) => f.outorgantes[0]?.nome?.trim() || f.outorgados[0]?.nome?.trim() || '';
+const clienteRequerente = (f: FormularioApostilamento | FormularioCertidao) => f.requerentes[0]?.nome?.trim() || '';
+const clienteUniaoEstavel = (f: FormularioUniaoEstavel) => nomesDe(f.companheiros);
+const clientePacto = (f: FormularioPactoAntenupcial) => nomesDe(f.nubentes);
 
 function App() {
   const [abaAtiva, setAbaAtiva] = useState('inicio');
@@ -502,93 +650,11 @@ function App() {
     setCadastrosAguardando((atuais) => [...atuais, cadastroComId]);
     void salvarCadastro(cadastroComId);
   };
-  const [formulario, setFormulario] = useState<FormularioProcuracao>(() => loadWorkspaceState('formulario-procuracao', {
-    outorgantes: [{
-      id: '1',
-      nome: '',
-      documento: '',
-      tipoDocumento: 'CPF',
-      nacionalidade: 'Brasileira',
-      rg: '',
-      dataExpedicaoRg: '',
-       orgaoExpedidor: '',
-      endereco: '',
-      telefone: '',
-      profissao: '',
-      estadoCivil: ''
-    }],
-    outorgados: [{
-      id: '1',
-      nome: '',
-      documento: '',
-      tipoDocumento: 'CPF',
-      nacionalidade: 'Brasileira',
-      rg: '',
-      dataExpedicaoRg: '',
-      orgaoExpedidor: '',
-      endereco: '',
-      profissao: '',
-      estadoCivil: ''
-    }],
-    testemunhas: [],
-    poderesOutorgados: [],
-    dadosBancarios: [],
-    dadosImovel: [],
-    dadosAdministracaoImovel: [],
-    dadosVeiculo: [],
-   outros: [],
-  }));
+  const [formulario, setFormulario] = useState<FormularioProcuracao>(() => loadWorkspaceState('formulario-procuracao', formularioProcuracaoVazio()));
 
-  const [formularioApostilamento, setFormularioApostilamento] = useState<FormularioApostilamento>(() => loadWorkspaceState('formulario-apostilamento', {
-    dataEntrega: '',
-    horarioEntrega: '',
-    requerentes: [{
-      id: '1',
-      nome: '',
-      cpf: '',
-      rg: '',
-      dataExpedicaoRg: '',
-      orgaoExpedidor: '',
-      endereco: '',
-      telefone: '',
-      profissao: '',
-      estadoCivil: '',
-      email: '',
-      dataNascimento: '',
-      filiacao: ''
-    }],
-    paisDestino: '',
-    quantidadeDocumentos: '',
-    quaisDocumentos: '',
-    assinaturaApostilada: ''
-  }));
+  const [formularioApostilamento, setFormularioApostilamento] = useState<FormularioApostilamento>(() => loadWorkspaceState('formulario-apostilamento', formularioApostilamentoVazio()));
 
-  const [formularioCertidao, setFormularioCertidao] = useState<FormularioCertidao>(() => loadWorkspaceState('formulario-certidao', {
-    dataEntrega: '',
-    horarioEntrega: '',
-    requerentes: [{
-      id: '1',
-      nome: '',
-      cpf: '',
-      rg: '',
-      dataExpedicaoRg: '',
-      orgaoExpedidor: '',
-      endereco: '',
-      telefone: '',
-      profissao: '',
-      estadoCivil: '',
-      email: '',
-      dataNascimento: '',
-      filiacao: ''
-    }],
-    tipoCertidao: '',
-    nomeOutorgantes: '',
-    nomeOutorgados: '',
-    livro: '',
-    folha: '',
-    data: '',
-    finalidade: ''
-  }));
+  const [formularioCertidao, setFormularioCertidao] = useState<FormularioCertidao>(() => loadWorkspaceState('formulario-certidao', formularioCertidaoVazio()));
 
   const adicionarPessoa = (tipo: 'outorgantes' | 'outorgados') => {
     const novaPessoa: Pessoa = {
@@ -755,17 +821,7 @@ orgaoExpedidor: '',
 
   // --- União Estável ---
 
-  const [formularioUniaoEstavel, setFormularioUniaoEstavel] = useState<FormularioUniaoEstavel>(() => loadWorkspaceState('formulario-uniao-estavel', {
-    companheiros: [
-      { id: '1', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
-      { id: '2', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
-    ],
-    dataInicioUniao: '',
-    regimeBens: '',
-    enderecoComum: '',
-    filhos: '',
-    testemunhas: [],
-  }));
+  const [formularioUniaoEstavel, setFormularioUniaoEstavel] = useState<FormularioUniaoEstavel>(() => loadWorkspaceState('formulario-uniao-estavel', formularioUniaoEstavelVazio()));
 
   const adicionarCompanheiro = () => {
     const novoCompanheiro: Pessoa = {
@@ -830,37 +886,13 @@ orgaoExpedidor: '',
 
   // --- Pacto Antenupcial ---
 
-  const [formularioPactoAntenupcial, setFormularioPactoAntenupcial] = useState<FormularioPactoAntenupcial>(() => loadWorkspaceState('formulario-pacto-antenupcial', {
-    nubentes: [
-      { id: '1', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
-      { id: '2', nome: '', documento: '', tipoDocumento: 'CPF', nacionalidade: 'Brasileira', rg: '', dataExpedicaoRg: '', orgaoExpedidor: '', endereco: '', telefone: '', profissao: '', estadoCivil: '' },
-    ],
-    regimeBens: '',
-    clausulasEspecificas: '',
-    dataPrevistaCasamento: '',
-    bensParticulares: '',
-    testemunhas: [],
-  }));
+  const [formularioPactoAntenupcial, setFormularioPactoAntenupcial] = useState<FormularioPactoAntenupcial>(() => loadWorkspaceState('formulario-pacto-antenupcial', formularioPactoAntenupcialVazio()));
 
-  useEffect(() => {
-    saveWorkspaceState('formulario-procuracao', formulario);
-  }, [formulario]);
-
-  useEffect(() => {
-    saveWorkspaceState('formulario-apostilamento', formularioApostilamento);
-  }, [formularioApostilamento]);
-
-  useEffect(() => {
-    saveWorkspaceState('formulario-certidao', formularioCertidao);
-  }, [formularioCertidao]);
-
-  useEffect(() => {
-    saveWorkspaceState('formulario-uniao-estavel', formularioUniaoEstavel);
-  }, [formularioUniaoEstavel]);
-
-  useEffect(() => {
-    saveWorkspaceState('formulario-pacto-antenupcial', formularioPactoAntenupcial);
-  }, [formularioPactoAntenupcial]);
+  const atendimentoProcuracao = useAtendimento('procuracao', formulario, setFormulario, formularioProcuracaoVazio, clienteProcuracao);
+  const atendimentoApostilamento = useAtendimento('apostilamento', formularioApostilamento, setFormularioApostilamento, formularioApostilamentoVazio, clienteRequerente);
+  const atendimentoCertidao = useAtendimento('certidao', formularioCertidao, setFormularioCertidao, formularioCertidaoVazio, clienteRequerente);
+  const atendimentoUniaoEstavel = useAtendimento('uniao-estavel', formularioUniaoEstavel, setFormularioUniaoEstavel, formularioUniaoEstavelVazio, clienteUniaoEstavel);
+  const atendimentoPacto = useAtendimento('pacto-antenupcial', formularioPactoAntenupcial, setFormularioPactoAntenupcial, formularioPactoAntenupcialVazio, clientePacto);
 
   const adicionarNubente = () => {
     const novoNubente: Pessoa = {
@@ -1950,6 +1982,7 @@ const renderizarCamposTestemunha = (
 
             {abaVisivel === 'procuracao' && (
               <div className="space-y-8 print:space-y-4">
+                <BarraAtendimento controle={atendimentoProcuracao} cliente={clienteProcuracao(formulario)} />
                 {/* Seção Outorgantes */}
                 <section>
                   <div className="flex items-center justify-between mb-6 print:mb-3">
@@ -2463,7 +2496,7 @@ const renderizarCamposTestemunha = (
                 {/* Botões de Ação */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
                   <button
-                    onClick={() => cadastrarNaAgenda('Procuração', 'Procuração pública', formulario.outorgantes[0]?.nome || formulario.outorgados[0]?.nome || '')}
+                    onClick={() => cadastrarNaAgenda('Procuração', 'Procuração pública', clienteProcuracao(formulario))}
                     className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <CalendarPlus className="w-4 h-4" />
@@ -2489,6 +2522,7 @@ const renderizarCamposTestemunha = (
 
             {abaVisivel === 'apostilamento' && (
               <div className="space-y-8 print:space-y-4">
+                <BarraAtendimento controle={atendimentoApostilamento} cliente={clienteRequerente(formularioApostilamento)} />
                 {/* Seção Dados de Entrega */}
                 <section>
                   <h2 className="text-2xl font-bold text-gray-800 mb-6 print:text-lg print:mb-3 flex items-center gap-2">
@@ -2622,7 +2656,7 @@ const renderizarCamposTestemunha = (
                 {/* Botões de Ação */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
                   <button
-                    onClick={() => cadastrarNaAgenda('Apostilamento', 'Apostilamento', formularioApostilamento.requerentes[0]?.nome || '', false)}
+                    onClick={() => cadastrarNaAgenda('Apostilamento', 'Apostilamento', clienteRequerente(formularioApostilamento), false)}
                     className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <CalendarPlus className="w-4 h-4" />
@@ -2640,6 +2674,7 @@ const renderizarCamposTestemunha = (
             )}
 {abaVisivel === 'certidoes' && (
   <div className="space-y-8 print:space-y-4">
+    <BarraAtendimento controle={atendimentoCertidao} cliente={clienteRequerente(formularioCertidao)} />
     {/* Seção Dados de Entrega */}
     <section>
       <h2 className="text-2xl font-bold text-gray-800 mb-6 print:text-lg print:mb-3 flex items-center gap-2">
@@ -2837,7 +2872,7 @@ const renderizarCamposTestemunha = (
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
       <button
-        onClick={() => cadastrarNaAgenda('Certidões', 'Certidão', formularioCertidao.requerentes[0]?.nome || '', false)}
+        onClick={() => cadastrarNaAgenda('Certidões', 'Certidão', clienteRequerente(formularioCertidao), false)}
         className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
       >
         <CalendarPlus className="w-4 h-4" />
@@ -2856,6 +2891,7 @@ const renderizarCamposTestemunha = (
 
 {abaVisivel === 'uniao_estavel' && (
   <div className="space-y-8 print:space-y-4">
+    <BarraAtendimento controle={atendimentoUniaoEstavel} cliente={clienteUniaoEstavel(formularioUniaoEstavel)} />
     {/* Seção Companheiros */}
     <section>
       <div className="flex items-center justify-between mb-6 print:mb-3">
@@ -2975,7 +3011,7 @@ const renderizarCamposTestemunha = (
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
       <button
-        onClick={() => cadastrarNaAgenda('União Estável', 'União estável', formularioUniaoEstavel.companheiros[0]?.nome || formularioUniaoEstavel.companheiros[1]?.nome || '')}
+        onClick={() => cadastrarNaAgenda('União Estável', 'União estável', clienteUniaoEstavel(formularioUniaoEstavel))}
         className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
       >
         <CalendarPlus className="w-4 h-4" />
@@ -3001,6 +3037,7 @@ const renderizarCamposTestemunha = (
 
 {abaVisivel === 'pacto_antenupcial' && (
   <div className="space-y-8 print:space-y-4">
+    <BarraAtendimento controle={atendimentoPacto} cliente={clientePacto(formularioPactoAntenupcial)} />
     {/* Seção Nubentes */}
     <section>
       <div className="flex items-center justify-between mb-6 print:mb-3">
@@ -3117,7 +3154,7 @@ const renderizarCamposTestemunha = (
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
       <button
-        onClick={() => cadastrarNaAgenda('Pacto Antenupcial', 'Pacto antenupcial', formularioPactoAntenupcial.requerentes[0]?.nome || '')}
+        onClick={() => cadastrarNaAgenda('Pacto Antenupcial', 'Pacto antenupcial', clientePacto(formularioPactoAntenupcial))}
         className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
       >
         <CalendarPlus className="w-4 h-4" />

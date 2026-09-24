@@ -2,7 +2,7 @@
 
 Aplicação web para preenchimento de formulários cartorários e geração de minutas de apoio ao atendimento, com base preparada para operação por workspace.
 
-O sistema reúne dados de pessoas, documentos, poderes, imóveis, veículos, testemunhas, apostilamentos e solicitações de certidões em uma interface única. Os rascunhos são persistidos localmente por workspace no navegador, mas ainda não são sincronizados entre usuários ou dispositivos.
+O sistema reúne dados de pessoas, documentos, poderes, imóveis, veículos, testemunhas, apostilamentos e solicitações de certidões em uma interface única. Cada formulário preenchido é um **atendimento** próprio, salvo no banco do cartório um segundo após a última alteração. Vários atendentes podem preencher o mesmo tipo de formulário ao mesmo tempo; qualquer um pode reabrir um atendimento em aberto, e **Encerrar** apaga o rascunho e os dados pessoais preenchidos.
 
 ## Funcionalidades
 

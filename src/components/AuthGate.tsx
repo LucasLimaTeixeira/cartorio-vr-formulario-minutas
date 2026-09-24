@@ -3,9 +3,9 @@ import { ArrowRight, FileText, KeyRound, Loader2, LogIn, LogOut, UserPlus } from
 import { Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { carregarModelosMinuta } from '../utils/modelosMinuta';
+import { hidratarAtendimentos } from '../utils/atendimentos';
 import {
   configureWorkspaceProfile,
-  hydrateWorkspaceDrafts,
   WorkspacePlan,
   WorkspaceRole,
   WorkspaceFeatures,
@@ -58,6 +58,7 @@ function applyWorkspaceProfile(session: Session, workspace: WorkspaceRow, role: 
     cartorioEndereco: workspace.endereco || '',
     cartorioCidade: workspace.cidade || '',
     cartorioTabeliao: workspace.tabeliao || '',
+    userId: session.user.id,
     userName: session.user.user_metadata?.full_name || session.user.email || 'Usuário',
     userEmail: session.user.email || '',
     plan: workspace.plan,
@@ -162,24 +163,12 @@ function AuthenticatedApp({ session }: { session: Session }) {
         setReady(true);
         return;
       }
-      const membershipQuery = () => supabase
+      const { data: membership, error: membershipError } = await supabase
         .from('workspace_members')
         .select('workspace_id, role, workspaces(id, name, plan, endereco, cidade, tabeliao)')
         .eq('user_id', session.user.id)
         .limit(1)
         .maybeSingle();
-
-      let { data: membership, error: membershipError } = await membershipQuery();
-      if (membershipError && /endereco|cidade|tabeliao/i.test(membershipError.message)) {
-        const fallback = await supabase
-          .from('workspace_members')
-          .select('workspace_id, role, workspaces(id, name, plan)')
-          .eq('user_id', session.user.id)
-          .limit(1)
-          .maybeSingle();
-        membership = fallback.data;
-        membershipError = fallback.error;
-      }
 
       if (!mounted) return;
 
@@ -194,6 +183,7 @@ function AuthenticatedApp({ session }: { session: Session }) {
         configureWorkspaceProfile({
           ...workspaceProfile,
           workspaceName: 'Administração geral',
+          userId: session.user.id,
           userName: session.user.user_metadata?.full_name || session.user.email || 'Administrador',
           userEmail: session.user.email || '',
           features: noFeatures,
@@ -222,8 +212,8 @@ function AuthenticatedApp({ session }: { session: Session }) {
       if (subscriptionError) { setError(subscriptionError.message); setReady(true); return; }
       applyWorkspaceProfile(session, workspace, (membership as MembershipRow).role, subscription as SubscriptionRow | null, isSuperAdmin === true);
       setActiveWorkspaceId(workspace.id);
-      // Sem os modelos personalizados a minuta usa o texto padrão; não impede o login.
-      await Promise.all([hydrateWorkspaceDrafts(), carregarModelosMinuta().catch(() => undefined)]);
+      // Nenhuma das duas impede o login: sem elas a aba mantém o rascunho local e a minuta usa o texto padrão.
+      await Promise.all([hidratarAtendimentos().catch(() => undefined), carregarModelosMinuta().catch(() => undefined)]);
       if (mounted) setReady(true);
     }
 

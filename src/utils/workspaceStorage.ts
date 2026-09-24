@@ -1,6 +1,5 @@
 const STORAGE_PREFIX = 'cartorio-saas:';
 import { useSyncExternalStore } from 'react';
-import { supabase } from '../lib/supabase';
 
 export type WorkspacePlan = 'trial' | 'professional';
 export type WorkspaceRole = 'owner' | 'admin' | 'attendant' | 'viewer';
@@ -15,6 +14,7 @@ export interface WorkspaceProfile {
   cartorioEndereco: string;
   cartorioCidade: string;
   cartorioTabeliao: string;
+  userId: string;
   userName: string;
   userEmail: string;
   plan: WorkspacePlan;
@@ -31,6 +31,7 @@ export let workspaceProfile: WorkspaceProfile = {
   cartorioEndereco: '',
   cartorioCidade: '',
   cartorioTabeliao: '',
+  userId: '',
   userName: 'Operação local',
   userEmail: 'admin@workspace.local',
   plan: 'trial',
@@ -86,17 +87,6 @@ function storageKey(key: string) {
   return `${STORAGE_PREFIX}${workspaceProfile.workspaceId}:${key}`;
 }
 
-function formTypeForKey(key: string) {
-  const types: Record<string, string> = {
-    'formulario-procuracao': 'procuracao',
-    'formulario-apostilamento': 'apostilamento',
-    'formulario-certidao': 'certidao',
-    'formulario-uniao-estavel': 'uniao-estavel',
-    'formulario-pacto-antenupcial': 'pacto-antenupcial',
-  };
-  return types[key];
-}
-
 export function loadWorkspaceState<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
 
@@ -108,6 +98,7 @@ export function loadWorkspaceState<T>(key: string, fallback: T): T {
   }
 }
 
+// Cópia local da aba do navegador. A gravação no banco é feita por atendimento (utils/atendimentos.ts).
 export function saveWorkspaceState<T>(key: string, value: T) {
   if (typeof window === 'undefined') return;
 
@@ -116,41 +107,14 @@ export function saveWorkspaceState<T>(key: string, value: T) {
   } catch {
     return;
   }
-
-  const formType = formTypeForKey(key);
-  if (!supabase || !formType || workspaceProfile.workspaceId === 'workspace-local-demo') return;
-
-  void supabase.auth.getSession().then(({ data }) => {
-    if (!data.session) return;
-    return supabase.from('form_drafts').upsert({
-      workspace_id: workspaceProfile.workspaceId,
-      created_by: data.session.user.id,
-      form_type: formType,
-      data: value,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'workspace_id,form_type' });
-  });
 }
 
-export async function hydrateWorkspaceDrafts() {
-  if (!supabase || workspaceProfile.workspaceId === 'workspace-local-demo') return;
+export function removeWorkspaceState(key: string) {
+  if (typeof window === 'undefined') return;
 
-  const { data, error } = await supabase
-    .from('form_drafts')
-    .select('form_type, data')
-    .eq('workspace_id', workspaceProfile.workspaceId);
-
-  if (error) throw error;
-  const keys: Record<string, string> = {
-    procuracao: 'formulario-procuracao',
-    apostilamento: 'formulario-apostilamento',
-    certidao: 'formulario-certidao',
-    'uniao-estavel': 'formulario-uniao-estavel',
-    'pacto-antenupcial': 'formulario-pacto-antenupcial',
-  };
-
-  data.forEach((draft) => {
-    const key = keys[draft.form_type];
-    if (key) window.sessionStorage.setItem(storageKey(key), JSON.stringify(draft.data));
-  });
+  try {
+    window.sessionStorage.removeItem(storageKey(key));
+  } catch {
+    return;
+  }
 }

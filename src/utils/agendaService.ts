@@ -16,6 +16,8 @@ export type AgendamentoAgenda = {
   horario: string;
   sala: string;
   atendente: string;
+  // Nome gravado na reserva: continua visível se a pessoa sair da equipe.
+  atendenteNome?: string;
   ato: string;
   cliente: string;
   usaSala: boolean;
