@@ -40,7 +40,7 @@ function unwrapWorkspace(value: MembershipRow['workspaces']): WorkspaceRow | nul
 }
 
 type SubscriptionRow = { plan: WorkspacePlan; status: WorkspaceStatus; features: Partial<WorkspaceFeatures> | null; current_period_end: string | null };
-const noFeatures: WorkspaceFeatures = { agenda: false, procuracao: false, apostilamento: false, certidoes: false, uniao_estavel: false, pacto_antenupcial: false, outros: false };
+const noFeatures: WorkspaceFeatures = { agenda: false, procuracao: false, apostilamento: false, certidoes: false, uniao_estavel: false, pacto_antenupcial: false, outros: false, processos: false };
 
 function subscriptionProfile(subscription: SubscriptionRow) {
   return {

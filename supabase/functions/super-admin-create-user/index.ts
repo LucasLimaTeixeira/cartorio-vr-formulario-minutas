@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-type Role = 'admin' | 'attendant' | 'viewer';
+type Role = 'admin' | 'analyst' | 'attendant' | 'viewer';
 
 async function hashCpf(cpf: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cpf.replace(/\D/g, '')));
@@ -36,7 +36,7 @@ Deno.serve(async (request) => {
     if (!user || !isSuperAdmin) return resposta({ error: 'Sem permissão.' }, 403);
 
     const { workspaceId, nome, email, cpf, cargo, role, senha } = await request.json() as { workspaceId: string; nome: string; email: string; cpf: string; cargo: string; role: Role; senha: string };
-    if (!workspaceId || !nome?.trim() || !email?.trim() || !cargo?.trim() || !['admin', 'attendant', 'viewer'].includes(role)) {
+    if (!workspaceId || !nome?.trim() || !email?.trim() || !cargo?.trim() || !['admin', 'analyst', 'attendant', 'viewer'].includes(role)) {
       return resposta({ error: 'Dados inválidos.' }, 400);
     }
     if (!cpfValido(cpf ?? '')) return resposta({ error: 'CPF inválido: confira os números digitados.' }, 400);

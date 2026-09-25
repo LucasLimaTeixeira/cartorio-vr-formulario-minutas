@@ -2,11 +2,11 @@ const STORAGE_PREFIX = 'cartorio-saas:';
 import { useSyncExternalStore } from 'react';
 
 export type WorkspacePlan = 'trial' | 'professional';
-export type WorkspaceRole = 'owner' | 'admin' | 'attendant' | 'viewer';
-export type WorkspaceFeature = 'agenda' | 'procuracao' | 'apostilamento' | 'certidoes' | 'uniao_estavel' | 'pacto_antenupcial' | 'outros';
+export type WorkspaceRole = 'owner' | 'admin' | 'analyst' | 'attendant' | 'viewer';
+export type WorkspaceFeature = 'agenda' | 'procuracao' | 'apostilamento' | 'certidoes' | 'uniao_estavel' | 'pacto_antenupcial' | 'outros' | 'processos';
 export type WorkspaceFeatures = Record<WorkspaceFeature, boolean>;
 export type WorkspaceStatus = 'trialing' | 'active' | 'past_due' | 'cancelled' | 'suspended';
-export const defaultWorkspaceFeatures: WorkspaceFeatures = { agenda: true, procuracao: true, apostilamento: true, certidoes: true, uniao_estavel: true, pacto_antenupcial: true, outros: true };
+export const defaultWorkspaceFeatures: WorkspaceFeatures = { agenda: true, procuracao: true, apostilamento: true, certidoes: true, uniao_estavel: true, pacto_antenupcial: true, outros: true, processos: true };
 
 export interface WorkspaceProfile {
   workspaceId: string;
@@ -72,7 +72,12 @@ export function isWorkspaceOwner() {
 }
 
 export function canEditWorkspace() {
-  return ['owner', 'admin', 'attendant'].includes(workspaceProfile.role);
+  return ['owner', 'admin', 'analyst', 'attendant'].includes(workspaceProfile.role);
+}
+
+// Completar processos (gaveta, etapa, certidões, exigências): proprietário, administrador e analisador.
+export function canManageProcessos() {
+  return ['owner', 'admin', 'analyst'].includes(workspaceProfile.role) && isWorkspaceWritable() && workspaceProfile.features.processos;
 }
 
 export function hasWorkspaceFeature(feature: WorkspaceFeature) {

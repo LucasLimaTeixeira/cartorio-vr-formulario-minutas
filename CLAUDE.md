@@ -52,7 +52,8 @@ src/
   components/
     Campos.tsx                  CampoData (limites mín./máx.), CampoDocumento (CPF/CNPJ validado),
                                 CampoEstadoCivil (pergunta união estável para solteiro/separado/divorciado/viúvo)
-    TelaInicial.tsx             aba 'inicio'
+    TelaInicial.tsx             aba 'inicio': painel de cada usuário (agendamentos por data, processos, certidões vencendo)
+    Processos.tsx               controle de entrada: processos, certidões com vencimento e exigências
     BarraAtendimento.tsx        barra de atendimentos (abrir/novo/encerrar, status de gravação)
     MinutaModal.tsx             visualizar, copiar e imprimir a minuta (A4)
     TeamManager.tsx             equipe do cartório (proprietário)
@@ -68,6 +69,7 @@ src/
     equipe.ts                   membros reais do workspace para a agenda
     documentos.ts               máscara e dígitos verificadores de CPF e CNPJ (inclui CNPJ alfanumérico, 2026)
     campos.ts                   datas (máscara, conversão, limites) e opcoesCom()
+    processos.ts                tabelas processos/processo_certidoes/processo_exigencias, prazos e alertas de vencimento
     gerarMinuta.ts              monta o texto de cada minuta a partir do formulário
     modelosMinuta.ts            modelos padrão, variáveis {{NOME}}, blocos condicionais {{#X}}...{{/X}},
                                 sobrescritos pela tabela minuta_templates
@@ -86,8 +88,10 @@ scripts/                        preparar-notebook.ps1, backup-banco.ps1
 
 - **Workspace = um cartório.** Tem nome, endereço, cidade/UF e tabelião, que entram no cabeçalho das minutas.
   Nenhum workspace é criado automaticamente: depois do login o usuário cria um ou entra com convite.
-- **Papéis** (`workspace_members.role`): `owner`, `admin`, `attendant` (Operador), `viewer` (Consulta).
-  Os três primeiros editam e `viewer` só lê. Quem gerencia a equipe é o `owner`.
+- **Papéis** (`workspace_members.role`): `owner`, `admin`, `analyst` (Analisador), `attendant` (Operador),
+  `viewer` (Consulta). Os quatro primeiros editam formulários e agenda; `viewer` só lê. Quem gerencia a equipe é o `owner`.
+  Processos: qualquer um que edita registra a entrada; completar (gaveta, etapa, certidões, exigências) é de
+  `owner`/`admin`/`analyst` (`can_manage_processos`).
 - **Super Admin** (tabela `system_admins`, função `is_system_admin()`) é o operador do SaaS (Lucas). Vê as
   abas `super-admin` e `modelos-minuta`, cria usuários pelas Edge Functions e edita contrato e recursos.
 - **Assinatura** (`workspace_subscriptions`): `plan` (`trial` | `professional`), `status`
@@ -95,7 +99,7 @@ scripts/                        preparar-notebook.ps1, backup-banco.ps1
   `current_period_end`. Com `past_due`, `cancelled` ou `suspended` o workspace fica **somente leitura**.
   O React nunca altera a assinatura, só o Super Admin via RPC ou um webhook de backend.
 - **Recursos (features)**: `agenda`, `procuracao`, `apostilamento`, `certidoes`, `uniao_estavel`,
-  `pacto_antenupcial`, `outros`. Recurso desligado some do menu na hora (Realtime) e o RLS bloqueia no
+  `pacto_antenupcial`, `outros`, `processos`. Recurso desligado some do menu na hora (Realtime) e o RLS bloqueia no
   banco (`workspace_has_feature`, `form_type_feature`).
 - **Atendimento** = uma linha em `form_drafts` (`form_type`, `title`, `data` jsonb). Vários atendentes
   preenchem o mesmo tipo ao mesmo tempo. Qualquer um reabre um atendimento em aberto. **Encerrar apaga
@@ -103,6 +107,9 @@ scripts/                        preparar-notebook.ps1, backup-banco.ps1
 - **Agenda** (`agenda_items`): cadastros aguardando (`pending`) viram agendamentos (`appointment`) pela
   RPC `schedule_agenda_appointment`, que é transacional e impede conflito de sala/horário. Também há
   `cancel_agenda_appointment` e `set_agenda_appointment_realized`. As mudanças geram registro em `audit_events`.
+- **Processo** (`processos`): o que entrou para lavratura, de qualquer tipo de ato, com gaveta, data prevista e etapa.
+  Separado do atendimento (que é apagado ao encerrar). Certidões têm vencimento = emissão + prazo do tipo
+  (`workspace_settings.prazos_certidoes`). Desenho: `docs/superpowers/specs/2026-09-25-processos-analisador-design.md`.
 - **Modelos de minuta** (`minuta_templates`): globais, valem para todos os cartórios. Todo usuário lê e
   só o Super Admin altera. O que não foi personalizado usa o texto padrão de `modelosMinuta.ts`.
 

@@ -8,7 +8,7 @@ export interface MembroEquipe {
   funcao: string;
 }
 
-const funcaoPorPapel: Record<string, string> = { owner: 'Proprietário', admin: 'Administrador', attendant: 'Atendente' };
+const funcaoPorPapel: Record<string, string> = { owner: 'Proprietário', admin: 'Administrador', analyst: 'Analisador', attendant: 'Atendente' };
 
 // Equipe fictícia só para o modo demonstração, sem banco configurado.
 const equipeDemonstracao: MembroEquipe[] = [

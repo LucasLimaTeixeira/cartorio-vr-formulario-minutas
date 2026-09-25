@@ -3,15 +3,15 @@ import { Copy, UsersRound } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isWorkspaceOwner, workspaceProfile } from '../utils/workspaceStorage';
 
-type Role = 'owner' | 'admin' | 'attendant' | 'viewer';
+type Role = 'owner' | 'admin' | 'analyst' | 'attendant' | 'viewer';
 type Member = { user_id: string; role: Role; profiles: { full_name: string; email: string } | null };
 type MemberRecord = { user_id: string; role: Role };
 
-const roleLabel: Record<Role, string> = { owner: 'Proprietário', admin: 'Administrador', attendant: 'Atendente', viewer: 'Consulta' };
+const roleLabel: Record<Role, string> = { owner: 'Proprietário', admin: 'Administrador', analyst: 'Analisador', attendant: 'Atendente', viewer: 'Consulta' };
 
 export function TeamManager() {
   const [members, setMembers] = useState<Member[]>([]);
-  const [role, setRole] = useState<'admin' | 'attendant' | 'viewer'>('attendant');
+  const [role, setRole] = useState<Exclude<Role, 'owner'>>('attendant');
   const [invite, setInvite] = useState('');
   const [message, setMessage] = useState('');
   const isOwner = isWorkspaceOwner();
@@ -52,7 +52,7 @@ export function TeamManager() {
     setMessage('Código copiado. Ele expira em 14 dias e só pode ser usado uma vez.');
   };
 
-  const updateRole = async (userId: string, nextRole: 'admin' | 'attendant' | 'viewer') => {
+  const updateRole = async (userId: string, nextRole: Exclude<Role, 'owner'>) => {
     if (!supabase) return;
     const { error } = await supabase.rpc('update_workspace_member_role', { member_id: userId, new_role: nextRole });
     if (error) setMessage(error.message);
@@ -65,7 +65,7 @@ export function TeamManager() {
     <div className="team-heading"><UsersRound /><div><h2>Equipe do workspace</h2><p>Gere um código. O funcionário cria a própria conta e, na tela de primeiro acesso, escolhe “Tenho um convite”.</p></div></div>
     <div className="team-invite">
       <label>Perfil do convite<select value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
-        <option value="admin">Administrador</option>
+        <option value="admin">Administrador</option><option value="analyst">Analisador</option>
         <option value="attendant">Atendente</option><option value="viewer">Consulta</option>
       </select></label>
       <button type="button" onClick={() => void createInvite()}>Gerar convite</button>
@@ -74,7 +74,7 @@ export function TeamManager() {
     {message && <p className="team-message">{message}</p>}
     <div className="team-members">
       {members.map((member) => <article key={member.user_id}><div><strong>{member.profiles?.full_name || 'Usuário sem nome'}</strong><span>{member.profiles?.email || member.user_id}</span></div>
-        {workspaceProfile.role === 'owner' && member.role !== 'owner' ? <select value={member.role} onChange={(event) => void updateRole(member.user_id, event.target.value as 'admin' | 'attendant' | 'viewer')}><option value="admin">Administrador</option><option value="attendant">Atendente</option><option value="viewer">Consulta</option></select> : <b>{roleLabel[member.role]}</b>}
+        {workspaceProfile.role === 'owner' && member.role !== 'owner' ? <select value={member.role} onChange={(event) => void updateRole(member.user_id, event.target.value as Exclude<Role, 'owner'>)}><option value="admin">Administrador</option><option value="analyst">Analisador</option><option value="attendant">Atendente</option><option value="viewer">Consulta</option></select> : <b>{roleLabel[member.role]}</b>}
       </article>)}
     </div>
   </section>;

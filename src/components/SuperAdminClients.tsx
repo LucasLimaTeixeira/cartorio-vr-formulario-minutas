@@ -3,10 +3,10 @@ import { AlertTriangle, Building2, CalendarClock, KeyRound, Plus, Search, Settin
 import { supabase } from '../lib/supabase';
 import { CampoDocumento } from './Campos';
 
-type FeatureKey = 'agenda' | 'procuracao' | 'apostilamento' | 'certidoes' | 'uniao_estavel' | 'pacto_antenupcial' | 'outros';
+type FeatureKey = 'agenda' | 'procuracao' | 'apostilamento' | 'certidoes' | 'uniao_estavel' | 'pacto_antenupcial' | 'outros' | 'processos';
 type Features = Record<FeatureKey, boolean>;
-const defaultFeatures: Features = { agenda: true, procuracao: true, apostilamento: true, certidoes: true, uniao_estavel: true, pacto_antenupcial: true, outros: true };
-const featureLabels: Record<FeatureKey, string> = { agenda: 'Agenda', procuracao: 'Procuração', apostilamento: 'Apostilamento', certidoes: 'Certidões', uniao_estavel: 'União estável', pacto_antenupcial: 'Pacto antenupcial', outros: 'Outros formulários' };
+const defaultFeatures: Features = { agenda: true, procuracao: true, apostilamento: true, certidoes: true, uniao_estavel: true, pacto_antenupcial: true, outros: true, processos: true };
+const featureLabels: Record<FeatureKey, string> = { agenda: 'Agenda', procuracao: 'Procuração', apostilamento: 'Apostilamento', certidoes: 'Certidões', uniao_estavel: 'União estável', pacto_antenupcial: 'Pacto antenupcial', outros: 'Outros formulários', processos: 'Processos' };
 type Status = 'trialing' | 'active' | 'past_due' | 'cancelled' | 'suspended';
 type Cycle = 'monthly' | 'quarterly' | 'yearly';
 type Workspace = {
@@ -14,10 +14,10 @@ type Workspace = {
   plano: string; status: Status; max_usuarios: number; recursos: Features | null; usuarios: number;
   criado_em: string; contratado_em: string | null; vencimento: string | null; ciclo: Cycle; valor: number | null; observacoes: string;
 };
-type Role = 'admin' | 'attendant' | 'viewer';
+type Role = 'admin' | 'analyst' | 'attendant' | 'viewer';
 type Member = { id: string; nome: string; email: string; cargo: string; papel: Role | 'owner'; vinculado_em: string; ultimo_acesso: string | null };
 type Tab = 'overview' | 'users' | 'contract';
-const roles: Record<Role, string> = { admin: 'Admin do cartório', attendant: 'Operador', viewer: 'Consulta' };
+const roles: Record<Role, string> = { admin: 'Admin do cartório', analyst: 'Analisador', attendant: 'Operador', viewer: 'Consulta' };
 const statusLabels: Record<Status, string> = { trialing: 'Em avaliação', active: 'Ativo', past_due: 'Pagamento pendente', cancelled: 'Cancelado', suspended: 'Suspenso' };
 const planLabels: Record<string, string> = { trial: 'Avaliação', professional: 'Profissional' };
 const cycleLabels: Record<Cycle, string> = { monthly: 'Mensal', quarterly: 'Trimestral', yearly: 'Anual' };

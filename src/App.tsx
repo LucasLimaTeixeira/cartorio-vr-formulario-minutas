@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FileText, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2, LogOut, LayoutDashboard, ScrollText } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FileText, FolderOpen, Plus, Trash2, Building, User, Phone, MapPin, CreditCard, Home, Printer, Car, Shield, Moon, Sun, Menu, X, CalendarDays, CalendarPlus, Clock3, DoorOpen, UsersRound, AlertTriangle, CheckCircle2, LogOut, LayoutDashboard, ScrollText } from 'lucide-react';
 import {
   Pessoa,
   DadosBancarios,
@@ -28,6 +28,8 @@ import { WorkspaceFeature, canEditWorkspace, loadWorkspaceState, useWorkspacePro
 import { useAtendimento } from './utils/atendimentos';
 import { BarraAtendimento } from './components/BarraAtendimento';
 import { TelaInicial } from './components/TelaInicial';
+import { Processos } from './components/Processos';
+import type { NovoProcesso } from './utils/processos';
 import { supabase } from './lib/supabase';
 import { AgendamentoAgenda, CadastroAgenda, assinarAgenda, atualizarStatusAgendamento, carregarAgenda, removerItemAgenda, reservarAgendamento, salvarCadastro } from './utils/agendaService';
 import { MembroEquipe, carregarEquipe } from './utils/equipe';
@@ -35,6 +37,7 @@ import { MembroEquipe, carregarEquipe } from './utils/equipe';
 const itensMenu = [
   { id: 'inicio', label: 'Tela inicial', icon: LayoutDashboard },
   { id: 'agenda', label: 'Agenda', icon: CalendarDays },
+  { id: 'processos', label: 'Processos', icon: FolderOpen },
   { id: 'procuracao', label: 'Procuração', icon: FileText },
   { id: 'apostilamento', label: 'Apostilamento', icon: Shield },
   { id: 'certidoes', label: 'Certidões', icon: FileText },
@@ -606,6 +609,20 @@ function App() {
   const [temaEscuro, setTemaEscuro] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
   const [cadastrosAguardando, setCadastrosAguardando] = useState<CadastroAgenda[]>([]);
+  // "Abrir processo" num formulário leva o tipo de ato e as partes para a tela de Processos.
+  const [rascunhoProcesso, setRascunhoProcesso] = useState<NovoProcesso | null>(null);
+  const limparRascunhoProcesso = useCallback(() => setRascunhoProcesso(null), []);
+  const abrirProcesso = (tipoAto: string, pessoas: { nome: string; documento: string }[]) => {
+    const partes = pessoas.filter((p) => p.nome.trim() || p.documento.trim()).map((p) => ({ nome: p.nome, documento: p.documento }));
+    setRascunhoProcesso({ tipoAto, partes: partes.length ? partes : [{ nome: '', documento: '' }], objeto: '', observacoes: '' });
+    abrirAba('processos');
+  };
+  const botaoAbrirProcesso = (tipoAto: string, pessoas: { nome: string; documento: string }[]) => profile.features.processos && canEditWorkspace() && (
+    <button type="button" onClick={() => abrirProcesso(tipoAto, pessoas)} className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2">
+      <FolderOpen className="w-4 h-4" />
+      Abrir processo
+    </button>
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -1936,7 +1953,7 @@ const renderizarCamposTestemunha = (
             {temaEscuro ? 'Tema claro' : 'Tema escuro'}
           </button>
         </div>
-        {!['inicio', ...abasSuperAdmin].includes(abaVisivel) && <header className="app-header text-center mb-8 print:mb-4">
+        {!['inicio', 'processos', ...abasSuperAdmin].includes(abaVisivel) && <header className="app-header text-center mb-8 print:mb-4">
         <h1 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3 print:text-2xl print:mb-1">
   <FileText className="w-10 h-10 text-blue-600 print:hidden" />
   Cartório OS · Plataforma de Formulários
@@ -1944,7 +1961,7 @@ const renderizarCamposTestemunha = (
 <p className="text-gray-600 text-lg print:text-sm print:mb-2">Sistema de Geração de Formulários</p>
         </header>}
 
-        {!['inicio', 'agenda', ...abasSuperAdmin].includes(abaVisivel) && <aside className="app-notice mb-8 px-5 py-4 print:hidden" role="note">
+        {!['inicio', 'agenda', 'processos', ...abasSuperAdmin].includes(abaVisivel) && <aside className="app-notice mb-8 px-5 py-4 print:hidden" role="note">
           <p>
             Os rascunhos ficam salvos na conta do cartório e só os usuários dele têm acesso. Evite compartilhar telas, textos copiados ou arquivos impressos que contenham dados pessoais.
           </p>
@@ -1957,9 +1974,10 @@ const renderizarCamposTestemunha = (
         <div className="app-panel bg-white rounded-lg shadow-lg mb-8 print:shadow-none print:mb-4">
           <div className="p-6 print:p-2">
             {abaVisivel === 'agenda' && <AgendaAtendimentos cadastrosAguardando={cadastrosAguardando} onCadastroAgendado={removerCadastroAgendado} onAgendamentoRemarcado={adicionarCadastroAguardando} />}
-            {abaVisivel === 'inicio' && <TelaInicial onNavegar={abrirAba} cadastrosAguardando={cadastrosAguardando.length} />}
+            {abaVisivel === 'inicio' && <TelaInicial onNavegar={abrirAba} />}
             {abaVisivel === 'super-admin' && <SuperAdminClients />}
             {abaVisivel === 'modelos-minuta' && <ModelosMinutaAdmin />}
+            {abaVisivel === 'processos' && <Processos rascunho={rascunhoProcesso} onRascunhoUsado={limparRascunhoProcesso} />}
             {abaVisivel === 'outros' && <p className="home-empty">Outros formulários estarão disponíveis em breve.</p>}
 
             {abaVisivel === 'procuracao' && (
@@ -2478,6 +2496,7 @@ const renderizarCamposTestemunha = (
 
                 {/* Botões de Ação */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
+                  {botaoAbrirProcesso('Procuração', [...formulario.outorgantes, ...formulario.outorgados])}
                   <button
                     onClick={() => cadastrarNaAgenda('Procuração', 'Procuração pública', clienteProcuracao(formulario))}
                     className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
@@ -3002,6 +3021,7 @@ const renderizarCamposTestemunha = (
 
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
+      {botaoAbrirProcesso('União estável', formularioUniaoEstavel.companheiros)}
       <button
         onClick={() => cadastrarNaAgenda('União Estável', 'União estável', clienteUniaoEstavel(formularioUniaoEstavel))}
         className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"
@@ -3152,6 +3172,7 @@ const renderizarCamposTestemunha = (
 
     {/* Botões de Ação */}
     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 print:hidden">
+      {botaoAbrirProcesso('Pacto antenupcial', formularioPactoAntenupcial.nubentes)}
       <button
         onClick={() => cadastrarNaAgenda('Pacto Antenupcial', 'Pacto antenupcial', clientePacto(formularioPactoAntenupcial))}
         className="agenda-register-button px-5 py-3 rounded-lg transition-colors flex items-center gap-2"

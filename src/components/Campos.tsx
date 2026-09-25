@@ -13,10 +13,11 @@ interface CampoDataProps {
   className: string;
   minimo?: LimiteData;
   maximo?: LimiteData;
+  disabled?: boolean;
 }
 
 // Data fora dos limites não é aceita: o campo volta ao valor anterior e explica o motivo.
-export function CampoData({ value, onChange, className, minimo = ANO_MINIMO, maximo }: CampoDataProps) {
+export function CampoData({ value, onChange, className, minimo = ANO_MINIMO, maximo, disabled }: CampoDataProps) {
   const [texto, setTexto] = useState(value ? formatarDataAgenda(value) : '');
   const [erro, setErro] = useState('');
 
@@ -63,6 +64,7 @@ export function CampoData({ value, onChange, className, minimo = ANO_MINIMO, max
         placeholder="dd/mm/aaaa"
         inputMode="numeric"
         maxLength={10}
+        disabled={disabled}
         aria-invalid={Boolean(erro)}
       />
       {erro && <small className="campo-erro" role="alert">{erro}</small>}
