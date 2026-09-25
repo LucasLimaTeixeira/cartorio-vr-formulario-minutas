@@ -50,6 +50,8 @@ src/
   App.tsx (~3100 linhas)        TUDO do app: sidebar, abas, todos os formulários, agenda
                                 (AgendaAtendimentos, PainelAtendente), máscaras CPF/CNPJ/telefone/moeda
   components/
+    Campos.tsx                  CampoData (limites mín./máx.), CampoDocumento (CPF/CNPJ validado),
+                                CampoEstadoCivil (pergunta união estável para solteiro/separado/divorciado/viúvo)
     TelaInicial.tsx             aba 'inicio'
     BarraAtendimento.tsx        barra de atendimentos (abrir/novo/encerrar, status de gravação)
     MinutaModal.tsx             visualizar, copiar e imprimir a minuta (A4)
@@ -64,6 +66,8 @@ src/
                                 form_drafts); autosave 1s após a última alteração, fila serial de gravação
     agendaService.ts            agenda_items (kind 'pending' | 'appointment') via RPCs + Realtime
     equipe.ts                   membros reais do workspace para a agenda
+    documentos.ts               máscara e dígitos verificadores de CPF e CNPJ (inclui CNPJ alfanumérico, 2026)
+    campos.ts                   datas (máscara, conversão, limites) e opcoesCom()
     gerarMinuta.ts              monta o texto de cada minuta a partir do formulário
     modelosMinuta.ts            modelos padrão, variáveis {{NOME}}, blocos condicionais {{#X}}...{{/X}},
                                 sobrescritos pela tabela minuta_templates

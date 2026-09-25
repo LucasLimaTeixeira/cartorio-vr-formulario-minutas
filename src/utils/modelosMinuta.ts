@@ -172,6 +172,9 @@ export const DEFINICOES_MODELOS: Record<TipoModeloMinuta, DefinicaoModelo> = {
       { id: 'QUALIFICACAO_PESSOA', rotulo: 'Qualificação de pessoa física ({{OUTORGANTES}}, {{OUTORGADOS}}, {{DECLARANTES}}, {{NUBENTES}})', variaveis: variaveisQualificacao },
       { id: 'QUALIFICACAO_PJ', rotulo: 'Qualificação de pessoa jurídica (CNPJ)', variaveis: [
         { nome: 'NOME', descricao: 'Razão social' }, { nome: 'CNPJ', descricao: 'CNPJ' }, { nome: 'ENDERECO', descricao: 'Endereço da sede' },
+        { nome: 'REPRESENTANTE', descricao: 'Nome do representante legal (vazio se não informado)' },
+        { nome: 'REPRESENTANTE_CARGO', descricao: 'Cargo do representante, ex.: sócio-administrador (vazio se não informado)' },
+        { nome: 'REPRESENTANTE_CPF', descricao: 'CPF do representante (vazio se não informado)' },
       ] },
       { id: 'QUALIFICACAO_TESTEMUNHA', rotulo: 'Qualificação de testemunha ({{TESTEMUNHAS}})', variaveis: variaveisQualificacao },
       { id: 'QUALIFICACAO_REQUERENTE', rotulo: 'Qualificação de requerente ({{REQUERENTES}})', variaveis: [
@@ -180,6 +183,7 @@ export const DEFINICOES_MODELOS: Record<TipoModeloMinuta, DefinicaoModelo> = {
       { id: 'REGIME_PARCIAL', rotulo: 'Regime: Comunhão Parcial de Bens ({{REGIME_BENS}})', variaveis: variaveisRegime },
       { id: 'REGIME_UNIVERSAL', rotulo: 'Regime: Comunhão Universal de Bens ({{REGIME_BENS}})', variaveis: variaveisRegime },
       { id: 'REGIME_SEPARACAO', rotulo: 'Regime: Separação Total de Bens ({{REGIME_BENS}})', variaveis: variaveisRegime },
+      { id: 'REGIME_OBRIGATORIA', rotulo: 'Regime: Separação Obrigatória de Bens ({{REGIME_BENS}}, só união estável)', variaveis: variaveisRegime },
       { id: 'REGIME_AQUESTOS', rotulo: 'Regime: Participação Final nos Aquestos ({{REGIME_BENS}})', variaveis: variaveisRegime },
     ],
   },
@@ -298,12 +302,13 @@ Que esta declaração produz efeitos entre os declarantes e perante terceiros, n
     fechamento: '',
     trechos: {
       QUALIFICACAO_PESSOA: qualificacaoPadrao,
-      QUALIFICACAO_PJ: '{{NOME}}, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº {{CNPJ}}, com sede na {{ENDERECO}}',
+      QUALIFICACAO_PJ: '{{NOME}}, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº {{CNPJ}}, com sede na {{ENDERECO}}{{#REPRESENTANTE}}, neste ato representada por {{REPRESENTANTE}}{{/REPRESENTANTE}}{{#REPRESENTANTE_CARGO}}, na qualidade de {{REPRESENTANTE_CARGO}}{{/REPRESENTANTE_CARGO}}{{#REPRESENTANTE_CPF}}, inscrito(a) no CPF sob o nº {{REPRESENTANTE_CPF}}{{/REPRESENTANTE_CPF}}',
       QUALIFICACAO_TESTEMUNHA: qualificacaoPadrao,
       QUALIFICACAO_REQUERENTE: '{{NOME}}{{#ESTADO_CIVIL}}, {{ESTADO_CIVIL}}{{/ESTADO_CIVIL}}{{#PROFISSAO}}, {{PROFISSAO}}{{/PROFISSAO}}, portador(a) da Cédula de Identidade RG nº {{RG}}{{#ORGAO_EXPEDIDOR}}, expedida por {{ORGAO_EXPEDIDOR}}{{/ORGAO_EXPEDIDOR}}{{#DATA_EXPEDICAO}} em {{DATA_EXPEDICAO}}{{/DATA_EXPEDICAO}}, inscrito(a) no CPF sob o nº {{CPF}}, residente e domiciliado(a) na {{ENDERECO}}{{#TELEFONE}}, telefone {{TELEFONE}}{{/TELEFONE}}{{#EMAIL}}, e-mail {{EMAIL}}{{/EMAIL}}',
       REGIME_PARCIAL: 'Comunhão Parcial de Bens, pelo qual se comunicam os bens que sobrevierem ao casal na constância do(a) {{VINCULO}}, excluídos os bens que cada {{PESSOA}} já possuía antes de {{CASAR}} e os que vier a adquirir, na constância do(a) {{VINCULO}}, por doação ou sucessão, nos termos dos arts. 1.658 a 1.666 do Código Civil',
       REGIME_UNIVERSAL: 'Comunhão Universal de Bens, pelo qual se comunicam todos os bens presentes e futuros dos {{PESSOAS}} e suas dívidas passivas, ressalvadas as exceções previstas em lei, nos termos dos arts. 1.667 a 1.671 do Código Civil',
       REGIME_SEPARACAO: 'Separação Total de Bens, pelo qual permanecem incomunicáveis os bens presentes e futuros de cada {{PESSOA}}, competindo a cada um a exclusiva propriedade, administração e disposição de seu próprio patrimônio, nos termos do art. 1.687 do Código Civil',
+      REGIME_OBRIGATORIA: 'Separação Obrigatória de Bens, imposta por lei nas hipóteses do art. 1.641 do Código Civil, pelo qual permanecem incomunicáveis os bens de cada {{PESSOA}}, ressalvada a comunicação dos adquiridos onerosamente na constância do(a) {{VINCULO}} pelo esforço comum dos {{PESSOAS}}, nos termos da Súmula 377 do Supremo Tribunal Federal',
       REGIME_AQUESTOS: 'Participação Final nos Aquestos, pelo qual, na constância do(a) {{VINCULO}}, vigora entre os {{PESSOAS}} a separação de bens, competindo a cada um a exclusiva administração e disposição de seu patrimônio, cabendo a cada um, em caso de dissolução, o direito à metade dos bens adquiridos pelo casal a título oneroso durante o(a) {{VINCULO}}, nos termos dos arts. 1.672 a 1.686 do Código Civil',
     },
   },

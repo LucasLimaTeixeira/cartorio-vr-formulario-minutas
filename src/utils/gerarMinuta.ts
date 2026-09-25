@@ -1,4 +1,6 @@
 import {
+  DadosUniaoEstavel,
+  ESTADOS_CIVIS_COM_UNIAO_ESTAVEL,
   Pessoa,
   Testemunha,
   Requerente,
@@ -107,10 +109,19 @@ function montarMinuta(tipo: TipoMinuta, valores: Record<string, string>, assinan
 // O texto de cada qualificação é editável em "Textos das variáveis" (modelo 'textos').
 const textoVariavel = (id: string, valores: Record<string, string>) => preencherModelo(modeloMinuta('textos').trechos[id], valores);
 
-function valoresDocumentoIdentidade(p: { nome?: string; rg: string; orgaoExpedidor: string; dataExpedicaoRg: string; endereco: string; telefone?: string; profissao: string; estadoCivil: string }) {
+// "Solteiro(a), convivente em união estável sob o regime da Comunhão Parcial de Bens".
+// União estável só vale para quem não é casado; com outro estado civil a resposta é ignorada.
+function estadoCivilComUniao(p: DadosUniaoEstavel & { estadoCivil: string }) {
+  if (!p.estadoCivil || !ESTADOS_CIVIS_COM_UNIAO_ESTAVEL.includes(p.estadoCivil)) return p.estadoCivil || '';
+  if (p.uniaoEstavel === 'sim') return `${p.estadoCivil}, convivente em união estável${p.regimeUniao ? ` sob o regime da ${p.regimeUniao}` : ''}`;
+  if (p.uniaoEstavel === 'nao') return `${p.estadoCivil}, declarando não conviver em união estável`;
+  return p.estadoCivil;
+}
+
+function valoresDocumentoIdentidade(p: DadosUniaoEstavel & { nome?: string; rg: string; orgaoExpedidor: string; dataExpedicaoRg: string; endereco: string; telefone?: string; profissao: string; estadoCivil: string }) {
   return {
     NOME: p.nome?.trim() || '[NOME NÃO INFORMADO]',
-    ESTADO_CIVIL: p.estadoCivil || '',
+    ESTADO_CIVIL: estadoCivilComUniao(p),
     PROFISSAO: p.profissao || '',
     RG: p.rg || '[não informado]',
     ORGAO_EXPEDIDOR: p.orgaoExpedidor || '',
@@ -122,10 +133,14 @@ function valoresDocumentoIdentidade(p: { nome?: string; rg: string; orgaoExpedid
 
 export function qualificacaoPessoa(p: Pessoa): string {
   if (p.tipoDocumento === 'CNPJ') {
+    const temRepresentante = Boolean(p.representanteNome?.trim() || p.representanteCpf || p.representanteCargo?.trim());
     return textoVariavel('QUALIFICACAO_PJ', {
       NOME: p.nome?.trim() || '[NOME NÃO INFORMADO]',
       CNPJ: p.documento || '[CNPJ não informado]',
       ENDERECO: p.endereco || '[endereço não informado]',
+      REPRESENTANTE: p.representanteNome?.trim() || (temRepresentante ? '[representante não informado]' : ''),
+      REPRESENTANTE_CARGO: p.representanteCargo?.trim() ?? '',
+      REPRESENTANTE_CPF: p.representanteCpf ?? '',
     });
   }
   return textoVariavel('QUALIFICACAO_PESSOA', { ...valoresDocumentoIdentidade(p), NACIONALIDADE: p.nacionalidade || '', CPF: p.documento || '[não informado]' });
@@ -180,7 +195,8 @@ function clausulasPoderes(f: FormularioProcuracao): string[] {
         NUMERO: numero(f.dadosImovel, idx, 'imóvel'),
         VERBO: im.tipoTransacao === 'compra' ? 'comprar' : 'vender',
         EXTENSAO: im.tipoVenda === 'total' ? 'a totalidade' : 'a fração mínima ideal',
-        VALOR: im.valorTransacao || '[valor não informado]',
+        // O modelo já escreve "R$ " antes do valor; o campo do formulário também traz o "R$".
+        VALOR: im.valorTransacao.replace(/^\s*R\$\s*/, '') || '[valor não informado]',
         PAGAMENTO: im.formaPagamento === 'vista' ? 'à vista' : 'de forma financiada',
         IMOVEL: im.dadosImovel || '[dados do imóvel não informados]',
       });
@@ -238,8 +254,12 @@ function qualificacaoNumerada(pessoas: Pessoa[]): string {
 
 export function gerarMinutaProcuracao(f: FormularioProcuracao): MinutaGerada {
   const clausulas = clausulasPoderes(f);
+  // Empresa assina pelo representante: "EMPRESA LTDA — p/ Fulano de Tal".
   const assinantes = [
-    ...f.outorgantes.map((o) => o.nome || 'Outorgante'),
+    ...f.outorgantes.map((o) => {
+      const nome = o.nome || 'Outorgante';
+      return o.tipoDocumento === 'CNPJ' && o.representanteNome?.trim() ? `${nome} — p/ ${o.representanteNome.trim()}` : nome;
+    }),
     ...f.testemunhas.map((t) => t.nome || 'Testemunha'),
   ];
 
@@ -298,6 +318,7 @@ function textoRegimeBens(regime: string, contexto: 'casamento' | 'uniao'): strin
     'Comunhão Parcial de Bens': 'REGIME_PARCIAL',
     'Comunhão Universal de Bens': 'REGIME_UNIVERSAL',
     'Separação Total de Bens': 'REGIME_SEPARACAO',
+    'Separação Obrigatória de Bens': 'REGIME_OBRIGATORIA',
     'Participação Final nos Aquestos': 'REGIME_AQUESTOS',
   };
   return trechos[regime] ? textoVariavel(trechos[regime], palavras) : regime || '[regime de bens não informado]';

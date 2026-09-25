@@ -15,9 +15,12 @@ import {
   FormularioUniaoEstavel,
   FormularioPactoAntenupcial,
   PODERES_OPCOES,
-  ESTADOS_CIVIS,
   REGIMES_BENS,
+  REGIMES_PACTO,
 } from './types';
+import { CampoData, CampoDocumento, CampoEstadoCivil } from './components/Campos';
+import { converterDataAgenda, formatarDataAgenda, hoje, hojeIso, mascararData, opcoesCom } from './utils/campos';
+import { formatarCPF, formatarDocumento } from './utils/documentos';
 import { MinutaModal, TipoMinuta } from './components/MinutaModal';
 import { SuperAdminClients } from './components/SuperAdminClients';
 import { ModelosMinutaAdmin } from './components/ModelosMinutaAdmin';
@@ -68,17 +71,6 @@ const horariosAgenda = Array.from({ length: 18 }, (_, index) => {
 });
 const salasAgenda = ['Sala 1', 'Sala 2', 'Sala 3'];
 const atosSemSala = ['Certidão', 'Apostilamento'];
-function hojeNaAgenda() {
-  const agora = new Date();
-  const ano = agora.getFullYear();
-  const mes = String(agora.getMonth() + 1).padStart(2, '0');
-  const dia = String(agora.getDate()).padStart(2, '0');
-  return `${ano}-${mes}-${dia}`;
-}
-function formatarDataAgenda(dataIso: string) {
-  const [ano, mes, dia] = dataIso.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
 
 // Fixo: (21) 2345-6789 · Celular: (21) 98765-4321. Campo vazio continua vazio.
 function formatarTelefone(valor: string) {
@@ -88,14 +80,6 @@ function formatarTelefone(valor: string) {
   const meio = n.length === 11 ? 7 : 6;
   if (n.length <= meio) return `(${n.substring(0, 2)}) ${n.substring(2)}`;
   return `(${n.substring(0, 2)}) ${n.substring(2, meio)}-${n.substring(meio)}`;
-}
-
-// Insere as barras sozinho: quem digita 25092026 vê 25/09/2026.
-function mascararData(valor: string) {
-  const n = valor.replace(/\D/g, '').substring(0, 8);
-  if (n.length <= 2) return n;
-  if (n.length <= 4) return `${n.substring(0, 2)}/${n.substring(2)}`;
-  return `${n.substring(0, 2)}/${n.substring(2, 4)}/${n.substring(4)}`;
 }
 
 // R$ 1.234.567,89 — os dígitos entram pela direita, como em caixa eletrônico.
@@ -109,57 +93,8 @@ function formatarMoeda(valor: string) {
 
 const somenteDigitos = (valor: string, limite: number) => valor.replace(/\D/g, '').substring(0, limite);
 
-function converterDataAgenda(dataTexto: string) {
-  const partes = dataTexto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!partes) return null;
-
-  const [, dia, mes, ano] = partes;
-  const data = new Date(Number(ano), Number(mes) - 1, Number(dia));
-  if (data.getFullYear() !== Number(ano) || data.getMonth() !== Number(mes) - 1 || data.getDate() !== Number(dia)) return null;
-  return `${ano}-${mes}-${dia}`;
-}
-
-interface CampoDataProps {
-  value: string;
-  onChange: (value: string) => void;
-  className: string;
-}
-
-function CampoData({ value, onChange, className }: CampoDataProps) {
-  const [texto, setTexto] = useState(value ? formatarDataAgenda(value) : '');
-
-  useEffect(() => {
-    setTexto(value ? formatarDataAgenda(value) : '');
-  }, [value]);
-
-  return (
-    <input
-      type="text"
-      value={texto}
-      onChange={(event) => {
-        const novoTexto = mascararData(event.target.value);
-        setTexto(novoTexto);
-        const dataIso = converterDataAgenda(novoTexto);
-        if (dataIso) onChange(dataIso);
-      }}
-      onBlur={() => {
-        const dataIso = converterDataAgenda(texto);
-        if (dataIso) {
-          onChange(dataIso);
-          setTexto(formatarDataAgenda(dataIso));
-        } else if (!texto) {
-          onChange('');
-        } else {
-          setTexto(value ? formatarDataAgenda(value) : '');
-        }
-      }}
-      className={className}
-      placeholder="dd/mm/aaaa"
-      inputMode="numeric"
-      maxLength={10}
-    />
-  );
-}
+const classeCampo = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm';
+const classeRotulo = 'block text-sm font-medium text-gray-700 mb-2 print:mb-1';
 
 function inicioDaSemana(data: Date) {
   const resultado = new Date(data);
@@ -246,8 +181,8 @@ interface AgendaAtendimentosProps {
 
 function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAgendamentoRemarcado }: AgendaAtendimentosProps) {
   const profile = useWorkspaceProfile();
-  const [dataAgenda, setDataAgenda] = useState(hojeNaAgenda);
-  const [dataAgendaTexto, setDataAgendaTexto] = useState(() => formatarDataAgenda(hojeNaAgenda()));
+  const [dataAgenda, setDataAgenda] = useState(hojeIso);
+  const [dataAgendaTexto, setDataAgendaTexto] = useState(() => formatarDataAgenda(hojeIso()));
   const [agendamentos, setAgendamentos] = useState<AgendamentoAgenda[]>([]);
   const [equipe, setEquipe] = useState<MembroEquipe[]>([]);
   const [atendenteSelecionado, setAtendenteSelecionado] = useState('');
@@ -376,6 +311,12 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
     const atendente = equipe.find((m) => m.id === atendenteSelecionado);
     if (!atendente) {
       setMensagemAgenda('Escolha quem vai fazer o atendimento.');
+      return;
+    }
+    const agora = new Date();
+    const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
+    if (dataAgenda < hojeIso() || (dataAgenda === hojeIso() && horarioSelecionado < horaAtual)) {
+      setMensagemAgenda('Não é possível agendar em data ou horário que já passou.');
       return;
     }
     const atosNoHorario = agendamentosComSala.filter((item) => item.horario === horarioSelecionado);
@@ -794,7 +735,7 @@ orgaoExpedidor: '',
     if (campo === 'documento') {
       const pessoa = formulario[tipo].find(p => p.id === id);
       if (pessoa) {
-        valorFormatado = aplicarMascaraDocumento(valor, pessoa.tipoDocumento);
+        valorFormatado = formatarDocumento(valor, pessoa.tipoDocumento);
       }
     }
     
@@ -894,7 +835,7 @@ orgaoExpedidor: '',
 
   const atualizarCompanheiro = (id: string, campo: string, valor: string) => {
     let valorFormatado = valor;
-    if (campo === 'documento') valorFormatado = aplicarMascaraDocumento(valor, 'CPF');
+    if (campo === 'documento') valorFormatado = formatarDocumento(valor, 'CPF');
     if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
     setFormularioUniaoEstavel(prev => ({
       ...prev,
@@ -916,7 +857,7 @@ orgaoExpedidor: '',
 
   const atualizarTestemunhaUniao = (id: string, campo: string, valor: string) => {
     let valorFormatado = valor;
-    if (campo === 'documento') valorFormatado = aplicarMascaraDocumento(valor, 'CPF');
+    if (campo === 'documento') valorFormatado = formatarDocumento(valor, 'CPF');
     if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
     setFormularioUniaoEstavel(prev => ({
       ...prev,
@@ -962,7 +903,7 @@ orgaoExpedidor: '',
 
   const atualizarNubente = (id: string, campo: string, valor: string) => {
     let valorFormatado = valor;
-    if (campo === 'documento') valorFormatado = aplicarMascaraDocumento(valor, 'CPF');
+    if (campo === 'documento') valorFormatado = formatarDocumento(valor, 'CPF');
     if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
     setFormularioPactoAntenupcial(prev => ({
       ...prev,
@@ -984,7 +925,7 @@ orgaoExpedidor: '',
 
   const atualizarTestemunhaPacto = (id: string, campo: string, valor: string) => {
     let valorFormatado = valor;
-    if (campo === 'documento') valorFormatado = aplicarMascaraDocumento(valor, 'CPF');
+    if (campo === 'documento') valorFormatado = formatarDocumento(valor, 'CPF');
     if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
     setFormularioPactoAntenupcial(prev => ({
       ...prev,
@@ -1229,27 +1170,6 @@ orgaoExpedidor: '',
     }));
   };
 
-  const formatarCPF = (valor: string) => {
-    const numbers = valor.replace(/\D/g, '').substring(0, 11);
-    if (numbers.length <= 3) return numbers;
-    if (numbers.length <= 6) return numbers.replace(/(\d{3})(\d+)/, '$1.$2');
-    if (numbers.length <= 9) return numbers.replace(/(\d{3})(\d{3})(\d+)/, '$1.$2.$3');
-    return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d+)/, '$1.$2.$3-$4');
-  };
-  
-  const formatarCNPJ = (valor: string) => {
-    const numbers = valor.replace(/\D/g, '').substring(0, 14);
-    if (numbers.length <= 2) return numbers;
-    if (numbers.length <= 5) return numbers.replace(/(\d{2})(\d+)/, '$1.$2');
-    if (numbers.length <= 8) return numbers.replace(/(\d{2})(\d{3})(\d+)/, '$1.$2.$3');
-    if (numbers.length <= 12) return numbers.replace(/(\d{2})(\d{3})(\d{3})(\d+)/, '$1.$2.$3/$4');
-    return numbers.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d+)/, '$1.$2.$3/$4-$5');
-  };
-  
-  const aplicarMascaraDocumento = (valor: string, tipo: 'CPF' | 'CNPJ') => {
-    return tipo === 'CPF' ? formatarCPF(valor) : formatarCNPJ(valor);
-  };
-
   const adicionarTestemunha = () => {
     const novaTestemunha: Testemunha = {
       id: Date.now().toString(),
@@ -1285,7 +1205,7 @@ orgaoExpedidor: '',
     if (campo === 'documento') {
       const testemunha = formulario.testemunhas.find(t => t.id === id);
       if (testemunha) {
-        valorFormatado = aplicarMascaraDocumento(valor, testemunha.tipoDocumento);
+        valorFormatado = formatarDocumento(valor, testemunha.tipoDocumento);
       }
     }
     
@@ -1305,6 +1225,20 @@ orgaoExpedidor: '',
     window.print();
   };
 
+  const testamento = formularioCertidao.tipoCertidao === 'testamento';
+
+  // Datas que não podem estar no futuro (documentos, fatos passados) ou no passado (entregas, casamento).
+  const limiteExpedicao = hoje('A data de expedição não pode ser futura.');
+  const limiteNascimento = hoje('A data de nascimento não pode ser futura.');
+  const limiteDataAto = hoje('A data do ato não pode ser futura.');
+  const limiteInicioUniao = hoje('O início da união não pode ser uma data futura.');
+  const limiteEntrega = hoje('A data de entrega não pode estar no passado.');
+  const limiteCasamento = hoje('A data prevista do casamento não pode estar no passado.');
+  // A expedição do RG não pode ser anterior ao nascimento, quando ele foi informado.
+  const expedicaoAposNascimento = (dataNascimento: string) => (dataNascimento
+    ? { data: dataNascimento, mensagem: 'A expedição do RG não pode ser anterior à data de nascimento.' }
+    : undefined);
+
   const renderizarCamposPessoa = (
     pessoa: Pessoa,
     index: number,
@@ -1313,7 +1247,8 @@ orgaoExpedidor: '',
     podeRemover: boolean,
     onRemover: () => void,
     mostrarTelefone: boolean = true,
-    permitirCnpj: boolean = true
+    permitirCnpj: boolean = true,
+    perguntarUniaoEstavel: boolean = true
   ) => {
     // Pessoa jurídica não tem RG, profissão, nacionalidade nem estado civil.
     const juridica = permitirCnpj && pessoa.tipoDocumento === 'CNPJ';
@@ -1368,13 +1303,11 @@ orgaoExpedidor: '',
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">
             {juridica ? 'CNPJ' : 'CPF'}
           </label>
-          <input
-            type="text"
-            inputMode="numeric"
+          <CampoDocumento
             value={pessoa.documento}
-            onChange={(e) => onChange('documento', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-            placeholder={juridica ? '00.000.000/0000-00' : '000.000.000-00'}
+            tipo={juridica ? 'CNPJ' : 'CPF'}
+            onChange={(valor) => onChange('documento', valor)}
+            className={classeCampo}
           />
         </div>
         {!juridica && <>
@@ -1395,6 +1328,7 @@ orgaoExpedidor: '',
             value={pessoa.dataExpedicaoRg}
             onChange={(value) => onChange('dataExpedicaoRg', value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            maximo={limiteExpedicao}
           />
         </div>
 
@@ -1430,19 +1364,15 @@ orgaoExpedidor: '',
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Estado Civil</label>
-          <select
-            value={pessoa.estadoCivil}
-            onChange={(e) => onChange('estadoCivil', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-          >
-            <option value="">Selecione o estado civil</option>
-            {ESTADOS_CIVIS.map((estado) => (
-              <option key={estado} value={estado}>{estado}</option>
-            ))}
-          </select>
-        </div>
+        <CampoEstadoCivil
+          estadoCivil={pessoa.estadoCivil}
+          uniaoEstavel={pessoa.uniaoEstavel}
+          regimeUniao={pessoa.regimeUniao}
+          onChange={onChange}
+          className={classeCampo}
+          labelClassName={classeRotulo}
+          perguntarUniaoEstavel={perguntarUniaoEstavel}
+        />
         </>}
 
         {mostrarTelefone && (
@@ -1474,6 +1404,39 @@ orgaoExpedidor: '',
             placeholder="Rua, número, complemento, bairro, cidade, estado, CEP"
           />
         </div>
+
+        {juridica && <>
+          <h5 className="md:col-span-2 print:col-span-2 text-sm font-semibold text-gray-800 mt-2">Representante legal (quem assina pela empresa)</h5>
+          <div>
+            <label className={classeRotulo}>Nome do Representante</label>
+            <input
+              type="text"
+              value={pessoa.representanteNome ?? ''}
+              onChange={(e) => onChange('representanteNome', e.target.value)}
+              className={classeCampo}
+              placeholder="Nome completo"
+            />
+          </div>
+          <div>
+            <label className={classeRotulo}>CPF do Representante</label>
+            <CampoDocumento
+              value={pessoa.representanteCpf ?? ''}
+              tipo="CPF"
+              onChange={(valor) => onChange('representanteCpf', valor)}
+              className={classeCampo}
+            />
+          </div>
+          <div className="md:col-span-2 print:col-span-2">
+            <label className={classeRotulo}>Cargo ou Qualidade</label>
+            <input
+              type="text"
+              value={pessoa.representanteCargo ?? ''}
+              onChange={(e) => onChange('representanteCargo', e.target.value)}
+              className={classeCampo}
+              placeholder="Ex: sócio-administrador, diretor, procurador"
+            />
+          </div>
+        </>}
       </div>
     </div>
     );
@@ -1510,14 +1473,7 @@ orgaoExpedidor: '',
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">CPF</label>
-        <input
-          type="text"
-          value={requerente.cpf}
-          onChange={(e) => atualizarRequerente(requerente.id, 'cpf', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-          placeholder="000.000.000-00"
-          maxLength={14}
-        />
+        <CampoDocumento value={requerente.cpf} tipo="CPF" onChange={(valor) => atualizarRequerente(requerente.id, 'cpf', valor)} className={classeCampo} />
       </div>
 <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">RG</label>
@@ -1536,6 +1492,8 @@ orgaoExpedidor: '',
             value={requerente.dataExpedicaoRg}
             onChange={(value) => atualizarRequerente(requerente.id, 'dataExpedicaoRg', value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            maximo={limiteExpedicao}
+            minimo={expedicaoAposNascimento(requerente.dataNascimento)}
           />
         </div>
 
@@ -1560,19 +1518,7 @@ orgaoExpedidor: '',
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Estado Civil</label>
-        <select
-          value={requerente.estadoCivil}
-          onChange={(e) => atualizarRequerente(requerente.id, 'estadoCivil', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-        >
-          <option value="">Selecione o estado civil</option>
-          {ESTADOS_CIVIS.map((estado) => (
-            <option key={estado} value={estado}>{estado}</option>
-          ))}
-        </select>
-      </div>
+      <CampoEstadoCivil estadoCivil={requerente.estadoCivil} uniaoEstavel={requerente.uniaoEstavel} regimeUniao={requerente.regimeUniao} onChange={(campo, valor) => atualizarRequerente(requerente.id, campo, valor)} className={classeCampo} labelClassName={classeRotulo} />
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1 flex items-center gap-2">
@@ -1606,6 +1552,7 @@ orgaoExpedidor: '',
             value={requerente.dataNascimento}
             onChange={(value) => atualizarRequerente(requerente.id, 'dataNascimento', value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            maximo={limiteNascimento}
           />
       </div>
 
@@ -1667,14 +1614,7 @@ const renderizarCamposRequerenteCertidao = (requerente: Requerente, index: numbe
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">CPF</label>
-        <input
-          type="text"
-          value={requerente.cpf}
-          onChange={(e) => atualizarRequerenteCertidao(requerente.id, 'cpf', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-          placeholder="000.000.000-00"
-          maxLength={14}
-        />
+        <CampoDocumento value={requerente.cpf} tipo="CPF" onChange={(valor) => atualizarRequerenteCertidao(requerente.id, 'cpf', valor)} className={classeCampo} />
       </div>
 
       <div>
@@ -1694,6 +1634,8 @@ const renderizarCamposRequerenteCertidao = (requerente: Requerente, index: numbe
           value={requerente.dataExpedicaoRg}
           onChange={(value) => atualizarRequerenteCertidao(requerente.id, 'dataExpedicaoRg', value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            maximo={limiteExpedicao}
+            minimo={expedicaoAposNascimento(requerente.dataNascimento)}
         />
       </div>
 
@@ -1719,19 +1661,7 @@ const renderizarCamposRequerenteCertidao = (requerente: Requerente, index: numbe
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Estado Civil</label>
-        <select
-          value={requerente.estadoCivil}
-          onChange={(e) => atualizarRequerenteCertidao(requerente.id, 'estadoCivil', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-        >
-          <option value="">Selecione o estado civil</option>
-          {ESTADOS_CIVIS.map((estado) => (
-            <option key={estado} value={estado}>{estado}</option>
-          ))}
-        </select>
-      </div>
+      <CampoEstadoCivil estadoCivil={requerente.estadoCivil} uniaoEstavel={requerente.uniaoEstavel} regimeUniao={requerente.regimeUniao} onChange={(campo, valor) => atualizarRequerenteCertidao(requerente.id, campo, valor)} className={classeCampo} labelClassName={classeRotulo} />
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1 flex items-center gap-2">
@@ -1765,6 +1695,7 @@ const renderizarCamposRequerenteCertidao = (requerente: Requerente, index: numbe
           value={requerente.dataNascimento}
           onChange={(value) => atualizarRequerenteCertidao(requerente.id, 'dataNascimento', value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+            maximo={limiteNascimento}
         />
       </div>
 
@@ -1830,14 +1761,7 @@ const renderizarCamposTestemunha = (
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">CPF</label>
-        <input
-          type="text"
-          value={testemunha.documento}
-          onChange={(e) => onChange('documento', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-          placeholder="000.000.000-00"
-          maxLength={14}
-        />
+        <CampoDocumento value={testemunha.documento} tipo="CPF" onChange={(valor) => onChange('documento', valor)} className={classeCampo} />
       </div>
 
       <div>
@@ -1857,6 +1781,7 @@ const renderizarCamposTestemunha = (
           value={testemunha.dataExpedicaoRg}
           onChange={(value) => onChange('dataExpedicaoRg', value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
+          maximo={limiteExpedicao}
         />
       </div>
 
@@ -1893,19 +1818,7 @@ const renderizarCamposTestemunha = (
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Estado Civil</label>
-        <select
-          value={testemunha.estadoCivil}
-          onChange={(e) => onChange('estadoCivil', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-        >
-          <option value="">Selecione o estado civil</option>
-          {ESTADOS_CIVIS.map((estado) => (
-            <option key={estado} value={estado}>{estado}</option>
-          ))}
-        </select>
-      </div>
+      <CampoEstadoCivil estadoCivil={testemunha.estadoCivil} uniaoEstavel={testemunha.uniaoEstavel} regimeUniao={testemunha.regimeUniao} onChange={onChange} className={classeCampo} labelClassName={classeRotulo} />
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1 flex items-center gap-2">
@@ -2595,6 +2508,7 @@ const renderizarCamposTestemunha = (
                         <CampoData
                           value={formularioApostilamento.dataEntrega}
                           onChange={(value) => atualizarCampoApostilamento('dataEntrega', value)}
+                          minimo={limiteEntrega}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
                         />
                       </div>
@@ -2747,6 +2661,7 @@ const renderizarCamposTestemunha = (
             <CampoData
               value={formularioCertidao.dataEntrega}
               onChange={(value) => atualizarCampoCertidao('dataEntrega', value)}
+              minimo={limiteEntrega}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             />
           </div>
@@ -2841,17 +2756,18 @@ const renderizarCamposTestemunha = (
         {/* Campos da Certidão */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
           <div className="md:col-span-2 print:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Nome do(s) Outorgante(s)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">{testamento ? 'Nome do Testador' : 'Nome do(s) Outorgante(s)'}</label>
             <textarea
               value={formularioCertidao.nomeOutorgantes}
               onChange={(e) => atualizarCampoCertidao('nomeOutorgantes', e.target.value)}
               rows={2}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none print:border-gray-400 print:text-sm"
-              placeholder="Digite o nome completo do(s) outorgante(s)"
+              placeholder={testamento ? 'Nome completo de quem fez o testamento' : 'Digite o nome completo do(s) outorgante(s)'}
             />
           </div>
 
-          <div className="md:col-span-2 print:col-span-2">
+          {/* Testamento não tem outorgado: só o testador. */}
+          {!testamento && <div className="md:col-span-2 print:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Nome do(s) Outorgado(s)</label>
             <textarea
               value={formularioCertidao.nomeOutorgados}
@@ -2860,7 +2776,7 @@ const renderizarCamposTestemunha = (
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none print:border-gray-400 print:text-sm"
               placeholder="Digite o nome completo do(s) outorgado(s)"
             />
-          </div>
+          </div>}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Livro</label>
@@ -2889,6 +2805,7 @@ const renderizarCamposTestemunha = (
             <CampoData
               value={formularioCertidao.data}
               onChange={(value) => atualizarCampoCertidao('data', value)}
+              maximo={limiteDataAto}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             />
           </div>
@@ -2978,6 +2895,7 @@ const renderizarCamposTestemunha = (
             formularioUniaoEstavel.companheiros.length > 2,
             () => removerCompanheiro(companheiro.id),
             true,
+            false,
             false
           )
         )}
@@ -2994,6 +2912,7 @@ const renderizarCamposTestemunha = (
             <CampoData
               value={formularioUniaoEstavel.dataInicioUniao}
               onChange={(value) => atualizarCampoUniaoEstavel('dataInicioUniao', value)}
+              maximo={limiteInicioUniao}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             />
           </div>
@@ -3005,7 +2924,7 @@ const renderizarCamposTestemunha = (
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             >
               <option value="">Selecione o regime de bens</option>
-              {REGIMES_BENS.map((regime) => (
+              {opcoesCom(REGIMES_BENS, formularioUniaoEstavel.regimeBens).map((regime) => (
                 <option key={regime} value={regime}>{regime}</option>
               ))}
             </select>
@@ -3143,6 +3062,7 @@ const renderizarCamposTestemunha = (
             <CampoData
               value={formularioPactoAntenupcial.dataPrevistaCasamento}
               onChange={(value) => atualizarCampoPacto('dataPrevistaCasamento', value)}
+              minimo={limiteCasamento}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             />
           </div>
@@ -3154,10 +3074,13 @@ const renderizarCamposTestemunha = (
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
             >
               <option value="">Selecione o regime de bens</option>
-              {REGIMES_BENS.map((regime) => (
+              {opcoesCom(REGIMES_PACTO, formularioPactoAntenupcial.regimeBens).map((regime) => (
                 <option key={regime} value={regime}>{regime}</option>
               ))}
             </select>
+            {formularioPactoAntenupcial.regimeBens && !REGIMES_PACTO.includes(formularioPactoAntenupcial.regimeBens) && (
+              <small className="campo-erro" role="alert">Este regime não depende de pacto antenupcial: a comunhão parcial vale sem pacto e a separação obrigatória é imposta pela lei.</small>
+            )}
           </div>
         </div>
         <div className="mt-4">

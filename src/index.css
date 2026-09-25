@@ -1597,3 +1597,7 @@
 .dark .atendimento-bar.is-erro .atendimento-atual small, .dark .atendimento-erro { color: #ff9b9b; }
 .dark .atendimento-bar.is-pendente .atendimento-atual small, .dark .atendimento-bar.is-salvando .atendimento-atual small { color: #f6c26b; }
 @media (max-width: 640px) { .atendimento-acoes, .atendimento-abrir { width: 100%; } .atendimento-abrir select { max-width: none; width: 100%; } .atendimento-botao { flex: 1; justify-content: center; } }
+.campo-erro { display: block; margin-top: .3rem; color: #b42318; font-size: .75rem; font-weight: 700; }
+input[aria-invalid="true"] { border-color: #d92d20 !important; }
+.dark .campo-erro { color: #ff9b9b; }
+@media print { .campo-erro { display: none; } }
