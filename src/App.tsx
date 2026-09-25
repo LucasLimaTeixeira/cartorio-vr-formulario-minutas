@@ -245,6 +245,11 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
     () => salasAgenda.filter((sala) => !agendamentosComSala.some((item) => item.horario === horarioSelecionado && item.sala === sala)),
     [agendamentosComSala, horarioSelecionado],
   );
+  // Um atendente faz um atendimento por vez: com ou sem sala, realizado ou não.
+  const atendentesOcupados = useMemo(
+    () => agendamentosDoDia.filter((item) => item.horario === horarioSelecionado).map((item) => item.atendente),
+    [agendamentosDoDia, horarioSelecionado],
+  );
   const totalAtos = agendamentosDoDia.length;
   // Sem escolha explícita, o primeiro da fila já vem selecionado; 'avulso' agenda sem cadastro.
   const cadastroParaAgendar = cadastroSelecionado === 'avulso'
@@ -317,6 +322,10 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
     const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
     if (dataAgenda < hojeIso() || (dataAgenda === hojeIso() && horarioSelecionado < horaAtual)) {
       setMensagemAgenda('Não é possível agendar em data ou horário que já passou.');
+      return;
+    }
+    if (atendentesOcupados.includes(atendente.id)) {
+      setMensagemAgenda(`${atendente.nome} já tem um atendimento às ${horarioSelecionado} deste dia. Escolha outro horário ou outro atendente.`);
       return;
     }
     const atosNoHorario = agendamentosComSala.filter((item) => item.horario === horarioSelecionado);
@@ -440,7 +449,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
           <div className="booking-form">
             <label>Cadastro<select value={cadastroParaAgendar?.id.toString() ?? 'avulso'} onChange={(event) => setCadastroSelecionado(event.target.value)}><option value="avulso">Atendimento avulso</option>{cadastrosAguardando.map((cadastro) => <option value={cadastro.id} key={cadastro.id}>{cadastro.cliente} · {cadastro.descricao}</option>)}</select></label>
             {!cadastroParaAgendar && <label>Cliente<input type="text" value={clienteAvulso} onChange={(event) => setClienteAvulso(event.target.value)} placeholder="Nome do cliente" /></label>}
-            <label>Atendente<select value={atendenteSelecionado} onChange={(event) => setAtendenteSelecionado(event.target.value)}>{!equipe.length && <option value="">Nenhum atendente cadastrado</option>}{equipe.map((atendente) => <option value={atendente.id} key={atendente.id}>{atendente.nome}</option>)}</select></label>
+            <label>Atendente<select value={atendenteSelecionado} onChange={(event) => setAtendenteSelecionado(event.target.value)}>{!equipe.length && <option value="">Nenhum atendente cadastrado</option>}{equipe.map((atendente) => <option value={atendente.id} key={atendente.id}>{atendente.nome}{atendentesOcupados.includes(atendente.id) ? ' · ocupado neste horário' : ''}</option>)}</select></label>
             {!cadastroParaAgendar && <label>Tipo de ato<select value={atoSelecionado} onChange={(event) => setAtoSelecionado(event.target.value)}><option>Novo atendimento</option><option>Procuração pública</option><option>Escritura</option><option>Certidão</option><option>Apostilamento</option></select></label>}
             {/* Mesma data do "Dia em foco": o mapa de salas e os horários lotados acompanham a escolha. */}
             <label>Data<CampoData value={dataAgenda} onChange={(data) => { if (!data) return; setDataAgenda(data); setDataAgendaTexto(formatarDataAgenda(data)); }} className="" minimo={hoje('Não é possível agendar em data que já passou.')} /></label>
