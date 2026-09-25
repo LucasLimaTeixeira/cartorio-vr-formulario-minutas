@@ -373,7 +373,8 @@
 	}
 
 	.agenda-date-field input,
-	.booking-form select {
+	.booking-form select,
+	.booking-form input {
 		border: 1px solid #d7e2ea;
 		border-radius: 0.55rem;
 		background: #ffffff;
@@ -693,7 +694,8 @@
 		color: #526273;
 	}
 
-	.booking-form select {
+	.booking-form select,
+	.booking-form input {
 		padding: 0.68rem 0.7rem;
 		font-size: 0.8rem;
 	}
@@ -1158,12 +1160,14 @@
 
 	.dark .agenda-date-field,
 	.dark .agenda-date-field input,
-	.dark .booking-form select {
+	.dark .booking-form select,
+	.dark .booking-form input {
 		color: #d2e3e5;
 	}
 
 	.dark .agenda-date-field input,
 	.dark .booking-form select,
+	.dark .booking-form input,
 	.dark .agenda-summary-item,
 	.dark .agenda-section,
 	.dark .attendant-card,

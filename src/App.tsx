@@ -21,7 +21,7 @@ import {
 import { MinutaModal, TipoMinuta } from './components/MinutaModal';
 import { SuperAdminClients } from './components/SuperAdminClients';
 import { ModelosMinutaAdmin } from './components/ModelosMinutaAdmin';
-import { WorkspaceFeature, loadWorkspaceState, useWorkspaceProfile } from './utils/workspaceStorage';
+import { WorkspaceFeature, canEditWorkspace, loadWorkspaceState, useWorkspaceProfile } from './utils/workspaceStorage';
 import { useAtendimento } from './utils/atendimentos';
 import { BarraAtendimento } from './components/BarraAtendimento';
 import { TelaInicial } from './components/TelaInicial';
@@ -67,6 +67,7 @@ const horariosAgenda = Array.from({ length: 18 }, (_, index) => {
   return `${hora}:${minutos}`;
 });
 const salasAgenda = ['Sala 1', 'Sala 2', 'Sala 3'];
+const atosSemSala = ['Certidão', 'Apostilamento'];
 function hojeNaAgenda() {
   const agora = new Date();
   const ano = agora.getFullYear();
@@ -78,6 +79,35 @@ function formatarDataAgenda(dataIso: string) {
   const [ano, mes, dia] = dataIso.split('-');
   return `${dia}/${mes}/${ano}`;
 }
+
+// Fixo: (21) 2345-6789 · Celular: (21) 98765-4321. Campo vazio continua vazio.
+function formatarTelefone(valor: string) {
+  const n = valor.replace(/\D/g, '').substring(0, 11);
+  if (!n) return '';
+  if (n.length <= 2) return `(${n}`;
+  const meio = n.length === 11 ? 7 : 6;
+  if (n.length <= meio) return `(${n.substring(0, 2)}) ${n.substring(2)}`;
+  return `(${n.substring(0, 2)}) ${n.substring(2, meio)}-${n.substring(meio)}`;
+}
+
+// Insere as barras sozinho: quem digita 25092026 vê 25/09/2026.
+function mascararData(valor: string) {
+  const n = valor.replace(/\D/g, '').substring(0, 8);
+  if (n.length <= 2) return n;
+  if (n.length <= 4) return `${n.substring(0, 2)}/${n.substring(2)}`;
+  return `${n.substring(0, 2)}/${n.substring(2, 4)}/${n.substring(4)}`;
+}
+
+// R$ 1.234.567,89 — os dígitos entram pela direita, como em caixa eletrônico.
+function formatarMoeda(valor: string) {
+  const n = valor.replace(/\D/g, '').replace(/^0+/, '').substring(0, 15);
+  if (!n) return '';
+  const centavos = n.padStart(3, '0');
+  const inteiro = centavos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `R$ ${inteiro},${centavos.slice(-2)}`;
+}
+
+const somenteDigitos = (valor: string, limite: number) => valor.replace(/\D/g, '').substring(0, limite);
 
 function converterDataAgenda(dataTexto: string) {
   const partes = dataTexto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -107,7 +137,7 @@ function CampoData({ value, onChange, className }: CampoDataProps) {
       type="text"
       value={texto}
       onChange={(event) => {
-        const novoTexto = event.target.value.replace(/[^\d/]/g, '').slice(0, 10);
+        const novoTexto = mascararData(event.target.value);
         setTexto(novoTexto);
         const dataIso = converterDataAgenda(novoTexto);
         if (dataIso) onChange(dataIso);
@@ -198,7 +228,7 @@ function PainelAtendente({ atendente, agendamentos, onVoltar }: PainelAtendenteP
         <div className="agenda-section-heading"><div><span className="agenda-kicker"><CalendarDays className="w-4 h-4" /> Histórico e agenda</span><h3>Todos os agendamentos</h3></div><span className="agenda-section-note">{agendamentosFiltrados.length} resultado(s)</span></div>
         <div className="attendant-filters">
           <label>Buscar cliente<input type="search" value={buscaCliente} onChange={(event) => setBuscaCliente(event.target.value)} placeholder="Nome do cliente" /></label>
-          <label>Filtrar por data<input type="text" value={dataFiltro ? formatarDataAgenda(dataFiltro) : ''} onChange={(event) => { const texto = event.target.value.replace(/[^\d/]/g, '').slice(0, 10); const data = converterDataAgenda(texto); setDataFiltro(data ?? ''); }} onBlur={(event) => { if (!dataFiltro && event.target.value) event.currentTarget.value = ''; }} placeholder="dd/mm/aaaa" inputMode="numeric" /></label>
+          <label>Filtrar por data<CampoData value={dataFiltro} onChange={setDataFiltro} className="" /></label>
         </div>
         <div className="attendant-appointments">
           {agendamentosFiltrados.length > 0 ? agendamentosFiltrados.map((agendamento) => <article className={`attendant-appointment ${agendamento.realizado ? 'is-done' : ''}`} key={agendamento.id}><div><strong>{agendamento.cliente}</strong><span>{agendamento.ato} · {agendamento.sala}</span></div><div><b>{formatarDataAgenda(agendamento.data)} às {agendamento.horario}</b><small>{agendamento.realizado ? 'Realizado' : 'Agendado'}</small></div></article>) : <p className="pending-empty">Nenhum agendamento encontrado para os filtros selecionados.</p>}
@@ -225,6 +255,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
   const [salaSelecionada, setSalaSelecionada] = useState('Sala 1');
   const [atoSelecionado, setAtoSelecionado] = useState('Novo atendimento');
   const [cadastroSelecionado, setCadastroSelecionado] = useState('');
+  const [clienteAvulso, setClienteAvulso] = useState('');
   const [mensagemAgenda, setMensagemAgenda] = useState('');
   const [atendenteEmFoco, setAtendenteEmFoco] = useState<string | null>(null);
 
@@ -280,8 +311,13 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
     [agendamentosComSala, horarioSelecionado],
   );
   const totalAtos = agendamentosDoDia.length;
-  const cadastroParaAgendar = cadastrosAguardando.find((cadastro) => cadastro.id.toString() === cadastroSelecionado) ?? cadastrosAguardando[0];
-  const usaSalaSelecionada = cadastroParaAgendar?.usaSala ?? true;
+  // Sem escolha explícita, o primeiro da fila já vem selecionado; 'avulso' agenda sem cadastro.
+  const cadastroParaAgendar = cadastroSelecionado === 'avulso'
+    ? undefined
+    : cadastrosAguardando.find((cadastro) => cadastro.id.toString() === cadastroSelecionado) ?? cadastrosAguardando[0];
+  // Certidão e apostilamento são atendidos no balcão, sem sala.
+  const usaSalaSelecionada = cadastroParaAgendar?.usaSala ?? !atosSemSala.includes(atoSelecionado);
+  const podeEditar = canEditWorkspace();
 
   // Agendamentos de quem saiu da equipe continuam mostrando o nome gravado na reserva.
   const nomeAtendente = (agendamento: AgendamentoAgenda) => equipe.find((m) => m.id === agendamento.atendente)?.nome ?? agendamento.atendenteNome ?? 'Atendente removido';
@@ -300,23 +336,28 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
     if (!confirmarCancelamento) return;
 
     setAgendamentos((atuais) => atuais.filter((agendamento) => agendamento.id !== id));
-    void removerItemAgenda(id);
     setMensagemAgenda('Agendamento cancelado.');
+    removerItemAgenda(id).catch(() => desfazerFalha('Não foi possível cancelar o agendamento. A agenda foi recarregada.'));
+  };
+
+  // A tela muda na hora; se o banco recusar, a agenda volta a mostrar o que está gravado.
+  const desfazerFalha = (mensagem: string) => {
+    setMensagemAgenda(mensagem);
+    void carregarAgenda().then(({ agendamentos }) => setAgendamentos(agendamentos)).catch(() => undefined);
   };
 
   const alternarRealizado = (id: string) => {
-    setAgendamentos((atuais) => atuais.map((agendamento) => {
-      if (agendamento.id !== id) return agendamento;
-      const atualizado = { ...agendamento, realizado: !agendamento.realizado };
-      void atualizarStatusAgendamento(atualizado);
-      return atualizado;
-    }));
+    const agendamento = agendamentos.find((item) => item.id === id);
+    if (!agendamento) return;
+    const atualizado = { ...agendamento, realizado: !agendamento.realizado };
+    setAgendamentos((atuais) => atuais.map((item) => (item.id === id ? atualizado : item)));
     setMensagemAgenda('Status do atendimento atualizado.');
+    atualizarStatusAgendamento(atualizado).catch(() => desfazerFalha('Não foi possível atualizar o status. A agenda foi recarregada.'));
   };
 
   const remarcarAgendamento = (agendamento: AgendamentoAgenda) => {
     setAgendamentos((atuais) => atuais.filter((item) => item.id !== agendamento.id));
-    void removerItemAgenda(agendamento.id);
+    removerItemAgenda(agendamento.id).catch(() => desfazerFalha('Não foi possível remarcar. A agenda foi recarregada.'));
     onAgendamentoRemarcado({
       id: Date.now(),
       formulario: agendamento.ato,
@@ -358,7 +399,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
         atendente: atendente.id,
         atendenteNome: atendente.nome,
         ato: cadastroParaAgendar?.descricao ?? atoSelecionado,
-        cliente: cadastroParaAgendar?.cliente ?? 'Cliente não informado',
+        cliente: cadastroParaAgendar?.cliente ?? (clienteAvulso.trim() || 'Cliente não informado'),
         usaSala: usaSalaSelecionada,
         realizado: false,
       };
@@ -366,6 +407,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
       const agendamentoSalvo = await reservarAgendamento(novoAgendamento, cadastroParaAgendar);
       setAgendamentos((atuais) => [...atuais, agendamentoSalvo]);
       if (cadastroParaAgendar) onCadastroAgendado(cadastroParaAgendar.id);
+      else setClienteAvulso('');
       setMensagemAgenda('Atendimento reservado na agenda.');
     } catch (error) {
       setMensagemAgenda(error instanceof Error ? error.message : 'Não foi possível reservar o atendimento.');
@@ -386,7 +428,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
             type="text"
             value={dataAgendaTexto}
             onChange={(event) => {
-              const texto = event.target.value.replace(/[^\d/]/g, '').slice(0, 10);
+              const texto = mascararData(event.target.value);
               setDataAgendaTexto(texto);
               const dataIso = converterDataAgenda(texto);
               if (dataIso) setDataAgenda(dataIso);
@@ -429,7 +471,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
 
       <section className="agenda-section no-room-section">
         <div className="agenda-section-heading"><div><span className="agenda-kicker"><FileText className="w-4 h-4" /> Fluxo sem sala</span><h3>Certidões e apostilamentos</h3></div><span className="agenda-section-note">{agendamentosSemSala.length} atendimento(s)</span></div>
-        {agendamentosSemSala.length > 0 ? <div className="no-room-grid">{agendamentosSemSala.map((atendimento) => <article className={`no-room-card ${atendimento.realizado ? 'is-done' : ''}`} key={atendimento.id}><div><span>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.horario} · {atendimento.ato}</span><strong>{atendimento.cliente}</strong><small>Atendimento sem utilização de sala · {nomeAtendente(atendimento)}</small></div><div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div></article>)}</div> : <p className="pending-empty">Nenhuma certidão ou apostilamento agendado para este dia.</p>}
+        {agendamentosSemSala.length > 0 ? <div className="no-room-grid">{agendamentosSemSala.map((atendimento) => <article className={`no-room-card ${atendimento.realizado ? 'is-done' : ''}`} key={atendimento.id}><div><span>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.horario} · {atendimento.ato}</span><strong>{atendimento.cliente}</strong><small>Atendimento sem utilização de sala · {nomeAtendente(atendimento)}</small></div>{podeEditar && <div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div>}</article>)}</div> : <p className="pending-empty">Nenhuma certidão ou apostilamento agendado para este dia.</p>}
       </section>
 
       <div className="agenda-columns">
@@ -444,7 +486,7 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
                 {salasAgenda.map((sala) => {
                   const atendimento = atosDoHorario.find((item) => item.sala === sala);
                   return <div className={`schedule-room ${atendimento ? 'is-booked' : 'is-free'} ${atendimento?.realizado ? 'is-done' : ''}`} key={sala}>
-                    {atendimento ? <><b>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.ato}</b><span className="schedule-client">Cliente: {atendimento.cliente}</span><span>{nomeAtendente(atendimento)}</span><div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div></> : <span>Livre</span>}
+                    {atendimento ? <><b>{atendimento.realizado && <CheckCircle2 className="done-icon" />} {atendimento.ato}</b><span className="schedule-client">Cliente: {atendimento.cliente}</span><span>{nomeAtendente(atendimento)}</span>{podeEditar && <div className="schedule-actions"><button type="button" className="realized-action" onClick={() => alternarRealizado(atendimento.id)}>{atendimento.realizado ? 'Desfazer' : 'Realizado'}</button><button type="button" onClick={() => remarcarAgendamento(atendimento)}>Remarcar</button><button type="button" onClick={() => cancelarAgendamento(atendimento.id)}>Cancelar</button></div>}</> : <span>Livre</span>}
                   </div>;
                 })}
               </div>;
@@ -455,12 +497,13 @@ function AgendaAtendimentos({ cadastrosAguardando = [], onCadastroAgendado, onAg
         <section className="agenda-section booking-section">
           <div className="agenda-section-heading"><div><span className="agenda-kicker"><Plus className="w-4 h-4" /> Ação rápida</span><h3>Novo atendimento</h3></div></div>
           <div className="booking-form">
-            <label>Cadastro<select value={cadastroParaAgendar?.id.toString() ?? ''} onChange={(event) => setCadastroSelecionado(event.target.value)}><option value="">Atendimento avulso</option>{cadastrosAguardando.map((cadastro) => <option value={cadastro.id} key={cadastro.id}>{cadastro.formulario} · {cadastro.descricao}</option>)}</select></label>
+            <label>Cadastro<select value={cadastroParaAgendar?.id.toString() ?? 'avulso'} onChange={(event) => setCadastroSelecionado(event.target.value)}><option value="avulso">Atendimento avulso</option>{cadastrosAguardando.map((cadastro) => <option value={cadastro.id} key={cadastro.id}>{cadastro.cliente} · {cadastro.descricao}</option>)}</select></label>
+            {!cadastroParaAgendar && <label>Cliente<input type="text" value={clienteAvulso} onChange={(event) => setClienteAvulso(event.target.value)} placeholder="Nome do cliente" /></label>}
             <label>Atendente<select value={atendenteSelecionado} onChange={(event) => setAtendenteSelecionado(event.target.value)}>{!equipe.length && <option value="">Nenhum atendente cadastrado</option>}{equipe.map((atendente) => <option value={atendente.id} key={atendente.id}>{atendente.nome}</option>)}</select></label>
-            <label>Tipo de ato<select value={atoSelecionado} onChange={(event) => setAtoSelecionado(event.target.value)}><option>Novo atendimento</option><option>Procuração pública</option><option>Escritura</option><option>Certidão</option><option>Apostilamento</option></select></label>
+            {!cadastroParaAgendar && <label>Tipo de ato<select value={atoSelecionado} onChange={(event) => setAtoSelecionado(event.target.value)}><option>Novo atendimento</option><option>Procuração pública</option><option>Escritura</option><option>Certidão</option><option>Apostilamento</option></select></label>}
             <label>Horário<select value={horarioSelecionado} onChange={(event) => setHorarioSelecionado(event.target.value)}>{horariosAgenda.map((horario) => <option value={horario} key={horario}>{horario}{horariosCheios.includes(horario) ? ' · lotado' : ''}</option>)}</select></label>
             {usaSalaSelecionada && <label>Sala<select value={salaSelecionada} onChange={(event) => setSalaSelecionada(event.target.value)}>{salasAgenda.map((sala) => <option value={sala} key={sala}>{sala}{!salasLivres.includes(sala) ? ' · ocupada' : ''}</option>)}</select></label>}
-            <button type="button" onClick={() => void agendarAtendimento()} className="booking-button" disabled={!atendenteSelecionado || (usaSalaSelecionada && (horariosCheios.includes(horarioSelecionado) || !salasLivres.includes(salaSelecionada)))}><CheckCircle2 className="w-4 h-4" /> {usaSalaSelecionada ? 'Reservar sala e horário' : 'Reservar horário sem sala'}</button>
+            <button type="button" onClick={() => void agendarAtendimento()} className="booking-button" disabled={!podeEditar || !atendenteSelecionado || (usaSalaSelecionada && (horariosCheios.includes(horarioSelecionado) || !salasLivres.includes(salaSelecionada)))}><CheckCircle2 className="w-4 h-4" /> {usaSalaSelecionada ? 'Reservar sala e horário' : 'Reservar horário sem sala'}</button>
             {mensagemAgenda && <p className="booking-feedback">{mensagemAgenda}</p>}
           </div>
         </section>
@@ -629,6 +672,10 @@ function App() {
   }, []);
 
   const cadastrarNaAgenda = (formulario: string, descricao: string, cliente: string, usaSala = true) => {
+    if (!canEditWorkspace()) {
+      window.alert('Seu perfil é somente para consulta: não é possível cadastrar na agenda.');
+      return;
+    }
     const cadastro: CadastroAgenda = {
       id: Date.now(), remoteId: crypto.randomUUID(), formulario, descricao, cliente: cliente.trim() || 'Cliente não informado', usaSala,
     };
@@ -847,10 +894,7 @@ orgaoExpedidor: '',
 
   const atualizarCompanheiro = (id: string, campo: string, valor: string) => {
     let valorFormatado = valor;
-    if (campo === 'documento') {
-      const companheiro = formularioUniaoEstavel.companheiros.find(c => c.id === id);
-      if (companheiro) valorFormatado = aplicarMascaraDocumento(valor, companheiro.tipoDocumento);
-    }
+    if (campo === 'documento') valorFormatado = aplicarMascaraDocumento(valor, 'CPF');
     if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
     setFormularioUniaoEstavel(prev => ({
       ...prev,
@@ -918,10 +962,7 @@ orgaoExpedidor: '',
 
   const atualizarNubente = (id: string, campo: string, valor: string) => {
     let valorFormatado = valor;
-    if (campo === 'documento') {
-      const nubente = formularioPactoAntenupcial.nubentes.find(n => n.id === id);
-      if (nubente) valorFormatado = aplicarMascaraDocumento(valor, nubente.tipoDocumento);
-    }
+    if (campo === 'documento') valorFormatado = aplicarMascaraDocumento(valor, 'CPF');
     if (campo === 'telefone') valorFormatado = formatarTelefone(valor);
     setFormularioPactoAntenupcial(prev => ({
       ...prev,
@@ -1081,10 +1122,11 @@ orgaoExpedidor: '',
   };
 
   const atualizarDadosImovel = (id: string, campo: keyof DadosImovel, valor: string) => {
+    const valorFormatado = campo === 'valorTransacao' ? formatarMoeda(valor) : valor;
     setFormulario(prev => ({
       ...prev,
       dadosImovel: prev.dadosImovel.map(dado =>
-        dado.id === id ? { ...dado, [campo]: valor } : dado
+        dado.id === id ? { ...dado, [campo]: valorFormatado } : dado
       )
     }));
   };
@@ -1141,11 +1183,21 @@ orgaoExpedidor: '',
     }));
   };
 
+  // Placa (antiga ABC-1234 ou Mercosul ABC1D23) e chassi em maiúsculas; RENAVAM e anos só com números.
+  const mascarasVeiculo: Partial<Record<keyof DadosVeiculo, (valor: string) => string>> = {
+    placa: (v) => v.toUpperCase().replace(/[^A-Z0-9-]/g, '').substring(0, 8),
+    chassi: (v) => v.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 17),
+    renavam: (v) => somenteDigitos(v, 11),
+    anoFabricacao: (v) => somenteDigitos(v, 4),
+    anoModelo: (v) => somenteDigitos(v, 4),
+  };
+
   const atualizarDadosVeiculo = (id: string, campo: keyof DadosVeiculo, valor: string) => {
+    const valorFormatado = mascarasVeiculo[campo]?.(valor) ?? valor;
     setFormulario(prev => ({
       ...prev,
       dadosVeiculo: prev.dadosVeiculo.map(dado =>
-        dado.id === id ? { ...dado, [campo]: valor } : dado
+        dado.id === id ? { ...dado, [campo]: valorFormatado } : dado
       )
     }));
   };
@@ -1192,14 +1244,6 @@ orgaoExpedidor: '',
     if (numbers.length <= 8) return numbers.replace(/(\d{2})(\d{3})(\d+)/, '$1.$2.$3');
     if (numbers.length <= 12) return numbers.replace(/(\d{2})(\d{3})(\d{3})(\d+)/, '$1.$2.$3/$4');
     return numbers.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d+)/, '$1.$2.$3/$4-$5');
-  };
-  
-  const formatarTelefone = (valor: string) => {
-    const numbers = valor.replace(/\D/g, '').substring(0, 11);
-    if (numbers.length <= 2) return `(${numbers}`;
-    if (numbers.length <= 3) return `(${numbers.substring(0, 2)})${numbers.substring(2)}`;
-    if (numbers.length <= 7) return `(${numbers.substring(0, 2)})${numbers.substring(2, 3)}.${numbers.substring(3)}`;
-    return `(${numbers.substring(0, 2)})${numbers.substring(2, 3)}.${numbers.substring(3, 6)}-${numbers.substring(6)}`;
   };
   
   const aplicarMascaraDocumento = (valor: string, tipo: 'CPF' | 'CNPJ') => {
@@ -1268,8 +1312,12 @@ orgaoExpedidor: '',
     onChange: (campo: string, valor: string) => void,
     podeRemover: boolean,
     onRemover: () => void,
-    mostrarTelefone: boolean = true
-  ) => (
+    mostrarTelefone: boolean = true,
+    permitirCnpj: boolean = true
+  ) => {
+    // Pessoa jurídica não tem RG, profissão, nacionalidade nem estado civil.
+    const juridica = permitirCnpj && pessoa.tipoDocumento === 'CNPJ';
+    return (
     <div key={pessoa.id} className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:border print:border-gray-400 print:bg-white">
       <div className="flex items-center justify-between mb-4 print:mb-2">
       <h4 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -1288,40 +1336,48 @@ orgaoExpedidor: '',
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-3 print:gap-1">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Nome Completo</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">{juridica ? 'Razão Social' : 'Nome Completo'}</label>
           <input
             type="text"
             value={pessoa.nome}
             onChange={(e) => onChange('nome', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-            placeholder="Digite o nome completo"
+            placeholder={juridica ? 'Razão social da empresa' : 'Digite o nome completo'}
           />
         </div>
 
+        {permitirCnpj && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Tipo de Documento</label>
           <select
             value={pessoa.tipoDocumento}
-            onChange={(e) => onChange('tipoDocumento', e.target.value)}
+            onChange={(e) => {
+              // O número digitado no outro formato não serve: CPF tem 11 dígitos e CNPJ, 14.
+              onChange('tipoDocumento', e.target.value);
+              onChange('documento', '');
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
           >
-            <option value="CPF">CPF</option>
-            <option value="CNPJ">CNPJ</option>
+            <option value="CPF">CPF (pessoa física)</option>
+            <option value="CNPJ">CNPJ (pessoa jurídica)</option>
           </select>
         </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">
-            {pessoa.tipoDocumento === 'CPF' ? 'CPF' : 'CNPJ'}
+            {juridica ? 'CNPJ' : 'CPF'}
           </label>
           <input
             type="text"
+            inputMode="numeric"
             value={pessoa.documento}
             onChange={(e) => onChange('documento', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-            placeholder={pessoa.tipoDocumento === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
+            placeholder={juridica ? '00.000.000/0000-00' : '000.000.000-00'}
           />
         </div>
+        {!juridica && <>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">RG</label>
           <input
@@ -1387,6 +1443,7 @@ orgaoExpedidor: '',
             ))}
           </select>
         </div>
+        </>}
 
         {mostrarTelefone && (
           <div>
@@ -1407,7 +1464,7 @@ orgaoExpedidor: '',
         <div className="md:col-span-2 print:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1 flex items-center gap-2">
             <MapPin className="w-4 h-4 print:hidden" />
-            Endereço Completo
+            {juridica ? 'Endereço da Sede' : 'Endereço Completo'}
           </label>
           <textarea
             value={pessoa.endereco}
@@ -1419,7 +1476,8 @@ orgaoExpedidor: '',
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderizarCamposRequerente = (requerente: Requerente, index: number) => (
   <div key={requerente.id} className="bg-gray-50 p-6 rounded-lg border border-gray-200 print:border print:border-gray-400 print:bg-white">
@@ -1526,8 +1584,8 @@ orgaoExpedidor: '',
           value={requerente.telefone}
           onChange={(e) => atualizarRequerente(requerente.id, 'telefone', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-          placeholder="(00)0.000-0000"
-          maxLength={14}
+          placeholder="(00) 00000-0000"
+          maxLength={15}
         />
       </div>
 
@@ -1685,8 +1743,8 @@ const renderizarCamposRequerenteCertidao = (requerente: Requerente, index: numbe
           value={requerente.telefone}
           onChange={(e) => atualizarRequerenteCertidao(requerente.id, 'telefone', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-          placeholder="(00)0.000-0000"
-          maxLength={14}
+          placeholder="(00) 00000-0000"
+          maxLength={15}
         />
       </div>
 
@@ -1859,8 +1917,8 @@ const renderizarCamposTestemunha = (
           value={testemunha.telefone}
           onChange={(e) => onChange('telefone', e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
-          placeholder="(00)0.000-0000"
-          maxLength={14}
+          placeholder="(00) 00000-0000"
+          maxLength={15}
         />
       </div>
   
@@ -2234,6 +2292,7 @@ const renderizarCamposTestemunha = (
                                     type="text"
                                     value={dadoImovel.valorTransacao}
                                     onChange={(e) => atualizarDadosImovel(dadoImovel.id, 'valorTransacao', e.target.value)}
+                                    inputMode="numeric"
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm print:px-2 print:py-1"
                                     placeholder="R$ 0,00"
                                   />
@@ -2404,7 +2463,7 @@ const renderizarCamposTestemunha = (
                                     value={dadoVeiculo.placa}
                                     onChange={(e) => atualizarDadosVeiculo(dadoVeiculo.id, 'placa', e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm print:px-2 print:py-1"
-                                    placeholder="ABC-1234"
+                                    placeholder="ABC1D23 ou ABC-1234"
                                   />
                                 </div>
                                 <div>
@@ -2604,12 +2663,12 @@ const renderizarCamposTestemunha = (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2 print:mb-1">Quantidade de Documentos</label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={formularioApostilamento.quantidadeDocumentos}
-                          onChange={(e) => atualizarCampoApostilamento('quantidadeDocumentos', e.target.value)}
+                          onChange={(e) => atualizarCampoApostilamento('quantidadeDocumentos', somenteDigitos(e.target.value, 3))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors print:border-gray-400 print:text-sm"
                           placeholder="Número de documentos"
-                          min="1"
                         />
                       </div>
                     </div>
@@ -2899,6 +2958,7 @@ const renderizarCamposTestemunha = (
           <User className="w-6 h-6 text-blue-600 print:hidden" />
           Companheiros
         </h2>
+        {formularioUniaoEstavel.companheiros.length < 2 && (
         <button
           onClick={adicionarCompanheiro}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 print:hidden"
@@ -2906,6 +2966,7 @@ const renderizarCamposTestemunha = (
           <Plus className="w-4 h-4" />
           Adicionar Companheiro(a)
         </button>
+        )}
       </div>
       <div className="space-y-4 print:space-y-2">
         {formularioUniaoEstavel.companheiros.map((companheiro, index) =>
@@ -2914,9 +2975,10 @@ const renderizarCamposTestemunha = (
             index,
             'Companheiro(a)',
             (campo, valor) => atualizarCompanheiro(companheiro.id, campo, valor),
-            formularioUniaoEstavel.companheiros.length > 1,
+            formularioUniaoEstavel.companheiros.length > 2,
             () => removerCompanheiro(companheiro.id),
-            true
+            true,
+            false
           )
         )}
       </div>
@@ -3045,6 +3107,7 @@ const renderizarCamposTestemunha = (
           <User className="w-6 h-6 text-blue-600 print:hidden" />
           Nubentes
         </h2>
+        {formularioPactoAntenupcial.nubentes.length < 2 && (
         <button
           onClick={adicionarNubente}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 print:hidden"
@@ -3052,6 +3115,7 @@ const renderizarCamposTestemunha = (
           <Plus className="w-4 h-4" />
           Adicionar Nubente
         </button>
+        )}
       </div>
       <div className="space-y-4 print:space-y-2">
         {formularioPactoAntenupcial.nubentes.map((nubente, index) =>
@@ -3060,9 +3124,10 @@ const renderizarCamposTestemunha = (
             index,
             'Nubente',
             (campo, valor) => atualizarNubente(nubente.id, campo, valor),
-            formularioPactoAntenupcial.nubentes.length > 1,
+            formularioPactoAntenupcial.nubentes.length > 2,
             () => removerNubente(nubente.id),
-            true
+            true,
+            false
           )
         )}
       </div>
